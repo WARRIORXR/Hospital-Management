@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { API_BASE_URL, apiUrl } from "@/lib/api";
+import { formatClock } from "@/lib/format";
 import {
   AreaChart,
   Area,
@@ -76,7 +77,8 @@ export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  // Starts empty: rendering `new Date()` during SSR guarantees a mismatch.
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState("");
 
   const fetchData = useCallback(async (manual = false) => {
@@ -157,7 +159,7 @@ export default function AdminDashboardPage() {
 
           <div className="flex items-center gap-4">
             <div className="text-xs text-slate-400 font-medium hidden md:block">
-              Auto-refreshing • Last: {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              Auto-refreshing • Last: {formatClock(lastUpdated) || "—"}
             </div>
 
             <button
@@ -200,7 +202,7 @@ export default function AdminDashboardPage() {
 
           <div className="flex items-center gap-2">
             <span className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700">
-              📅 Today's Live Flow
+              📅 Today&apos;s Live Flow
             </span>
           </div>
         </div>

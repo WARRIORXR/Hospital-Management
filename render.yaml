@@ -14,14 +14,19 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: queueless-db
           property: connectionString
+      # Resolved from the deployed frontend service so CORS survives Render's
+      # random onrender.com subdomain suffix instead of being hardcoded.
       - key: FRONTEND_ORIGINS
-        value: https://queueless-web.onrender.com
+        fromService:
+          type: web
+          name: queueless-web
+          property: host
 
   - type: web
     name: queueless-web
@@ -34,5 +39,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
+      # lib/api.ts adds the https:// scheme when only a host is provided.
       - key: NEXT_PUBLIC_API_URL
-        value: https://queueless-api-lvf5.onrender.com
+        fromService:
+          type: web
+          name: queueless-api
+          property: host

@@ -1,9 +1,11 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api";
+import { formatClock, formatDateTime } from "@/lib/format";
 
 type Patient = {
   id: number;
@@ -43,12 +45,18 @@ export default function QueuePage() {
   const [lastUpdated, setLastUpdated] =
     useState<Date | null>(null);
 
+  const [actionError, setActionError] = useState("");
+
+  const [cancelling, setCancelling] = useState(false);
+
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+
 
   // --------------------------------------------------
   // FETCH QUEUE DATA
   // --------------------------------------------------
 
-  const fetchQueueData = async () => {
+  const fetchQueueData = useCallback(async () => {
     try {
       setError("");
 
@@ -107,7 +115,7 @@ export default function QueuePage() {
       setLoading(false);
 
     }
-  };
+  }, [patientId]);
 
 
   // --------------------------------------------------
@@ -135,7 +143,43 @@ export default function QueuePage() {
 
     };
 
-  }, [patientId]);
+  }, [fetchQueueData]);
+
+
+  // --------------------------------------------------
+  // PATIENT ACTIONS
+  // --------------------------------------------------
+
+  const handleCancelVisit = async () => {
+    if (!patient) return;
+
+    setCancelling(true);
+    setActionError("");
+
+    try {
+      const response = await fetch(apiUrl(`/patients/${patient.id}/cancel`), {
+        method: "PUT",
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.detail === "string"
+            ? data.detail
+            : "Could not cancel this token."
+        );
+      }
+
+      await fetchQueueData();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Could not cancel this token."
+      );
+    } finally {
+      setCancelling(false);
+      setConfirmingLeave(false);
+    }
+  };
 
 
   // --------------------------------------------------
@@ -210,8 +254,15 @@ export default function QueuePage() {
     patient.department.charAt(0).toUpperCase() +
     patient.department.slice(1);
 
-  const priority =
-    patient.priority.replace("_", " ");
+  const priority = (patient.priority || "regular").replace("_", " ");
+
+  const isTerminal =
+    patient.status === "completed" ||
+    patient.status === "cancelled" ||
+    patient.status === "skipped";
+
+  const canLeaveQueue =
+    patient.status === "waiting" || patient.status === "called";
 
 
   // --------------------------------------------------
@@ -222,7 +273,51 @@ export default function QueuePage() {
 
     <main className="min-h-screen bg-[#f6f9fc] px-6 py-10">
 
-      <div className="mx-auto max-w-5xl">
+      {/* Printable token slip: only rendered when the patient prints the page */}
+
+      <div className="hidden print:block text-slate-900">
+
+        <p className="text-xs font-bold uppercase tracking-[0.3em]">
+          QueueLess · OPD Token Slip
+        </p>
+
+        <h1 className="mt-3 text-4xl font-black">
+          Token #{patient.token_number}
+        </h1>
+
+        <p className="mt-1 text-sm font-semibold">
+          {department} Department
+        </p>
+
+        <div className="mt-6 space-y-1 border-y border-slate-300 py-4 text-sm">
+          <p>
+            <span className="font-semibold">Patient:</span> {patient.name}
+          </p>
+          <p>
+            <span className="font-semibold">Age:</span> {patient.age}
+          </p>
+          <p>
+            <span className="font-semibold">Mobile:</span> +91 {patient.phone}
+          </p>
+
+          <p>
+            <span className="font-semibold">Priority:</span> {priority}
+          </p>
+
+          <p>
+            <span className="font-semibold">Printed:</span>{" "}
+            {formatDateTime(new Date())}
+          </p>
+        </div>
+
+        <p className="mt-4 text-xs">
+          Keep this slip with you. Your queue position is shown on the QueueLess
+          dashboard and refreshes every 5 seconds.
+        </p>
+
+      </div>
+
+      <div className="mx-auto max-w-5xl print:hidden">
 
 
         {/* ------------------------------------------------ */}
@@ -296,6 +391,68 @@ export default function QueuePage() {
             </p>
 
           </div>
+
+
+          {/* ------------------------------------------------ */}
+          {/* TOKEN ACTIONS */}
+          {/* ------------------------------------------------ */}
+
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-6 py-4 sm:flex-row sm:justify-end">
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
+            >
+              🖨️ Print token slip
+            </button>
+
+            {canLeaveQueue && !confirmingLeave && (
+              <button
+                type="button"
+                onClick={() => setConfirmingLeave(true)}
+                className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 shadow-sm transition hover:bg-rose-50"
+              >
+                Leave queue
+              </button>
+            )}
+
+            {canLeaveQueue && confirmingLeave && (
+              <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+
+                <span className="text-xs font-semibold text-rose-700">
+                  Cancel this token?
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleCancelVisit}
+                  disabled={cancelling}
+                  className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {cancelling ? "Cancelling..." : "Yes, leave queue"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmingLeave(false)}
+                  disabled={cancelling}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Keep waiting
+                </button>
+
+              </div>
+            )}
+
+          </div>
+
+
+          {actionError && (
+            <div className="border-b border-rose-100 bg-rose-50 px-6 py-3 text-sm font-semibold text-rose-700">
+              {actionError}
+            </div>
+          )}
 
 
           {/* ------------------------------------------------ */}
@@ -457,6 +614,36 @@ export default function QueuePage() {
             </div>
 
 
+            {isTerminal && (
+
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+
+                <p className="text-sm font-semibold text-amber-800">
+                  {patient.status === "completed"
+                    ? "Visit completed"
+                    : patient.status === "cancelled"
+                      ? "Token cancelled"
+                      : "Token skipped"}
+                </p>
+
+                <p className="mt-1 text-sm leading-6 text-amber-700">
+                  {patient.status === "completed"
+                    ? "Your consultation is finished. Take care, and follow any advice given by the doctor."
+                    : "This token is no longer active. You can register for a new token at any time."}
+                </p>
+
+                <Link
+                  href="/verify"
+                  className="mt-3 inline-block rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
+                >
+                  Get a new token →
+                </Link>
+
+              </div>
+
+            )}
+
+
             {/* ------------------------------------------------ */}
             {/* LIVE UPDATE INFO */}
             {/* ------------------------------------------------ */}
@@ -483,12 +670,7 @@ export default function QueuePage() {
 
                   <p className="text-xs font-medium text-slate-400">
 
-                    Updated{" "}
-                    {lastUpdated.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
+                    Updated {formatClock(lastUpdated)}
 
                   </p>
 

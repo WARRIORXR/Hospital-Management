@@ -8,15 +8,19 @@ QueueLess is a modern, full-stack web application designed to streamline patient
 ## 🚀 Key Features
 
 - **📱 Patient Self-Service Portal**
-  - Mobile verification with OTP.
+  - Server-issued OTP verification with expiry, resend cooldown, and attempt limits.
   - Department selection with real-time OPD status and doctor availability.
   - Priority category selection (Emergency, Elderly, Pregnant, Follow-up, Regular).
   - Instant token generation with live queue position and estimated wait time tracking.
+  - Printable token slip and self-service "leave queue" cancellation.
   - Token and queue lookup by registered phone number.
+  - One live token per phone number, so patients cannot double-book.
 
 - **🩺 Doctor & Staff Portal**
-  - Department-specific queue dashboard.
+  - Department-specific queue dashboard scoped to the current hospital day.
   - Priority-based patient queue with "Call Next", "Start Consultation", "Complete", "Skip", and "Cancel" actions.
+  - Requeue action restores a skipped/cancelled patient to the waiting queue.
+  - Room-occupancy guard: only one patient can be called into a department at a time.
   - Real-time doctor availability toggle.
 
 - **📊 Admin Operations Dashboard**
@@ -27,6 +31,12 @@ QueueLess is a modern, full-stack web application designed to streamline patient
 - **⚡ Priority-Aware Queue Algorithm**
   - Intelligent queue ordering based on clinical priority (Emergency > Pregnant/Elderly > Follow-up > Regular).
   - Dynamic estimated wait time calculations based on active consultations and queue length.
+  - Tokens restart at #1 for each department every hospital day.
+
+- **🔒 Consistency & Safety Rules**
+  - Visit state machine (waiting → called → consulting → completed) rejects invalid transitions.
+  - Duplicate active registrations return the patient's existing token instead of issuing a new one.
+  - Day-scoped analytics use real registration timestamps in hospital (IST) time.
 
 ---
 
@@ -126,6 +136,42 @@ cp .env.local.example .env.local
 npm run dev
 ```
 Frontend application will be accessible at: `http://localhost:3000`
+
+---
+
+### 3. Running the Backend Tests
+
+The API ships with an end-to-end pytest suite that runs against a throwaway SQLite database.
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest tests -q
+```
+
+Coverage includes OTP issuance/verification, duplicate registrations, the full visit flow,
+priority dispatch, room-occupancy conflicts, requeue, daily token reset, and analytics shape.
+
+---
+
+## 🔌 API Reference (selected)
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Readiness probe (API + database) |
+| `POST` | `/auth/request-otp` | Issue a 6-digit OTP for a mobile number |
+| `POST` | `/auth/verify-otp` | Verify an OTP (5 min TTL, 5 attempts) |
+| `GET` | `/opds` | Public OPD load, wait times, and serving token |
+| `POST` | `/patients` | Register a visit and issue a daily token |
+| `GET` | `/patients?department=&status=&today=` | Filter queue records |
+| `GET` | `/patients/by-phone/{phone}` | Latest/active visit for a mobile number |
+| `PUT` | `/patients/call-next?department=` | Priority-aware dispatch |
+| `PUT` | `/patients/{id}/consult` \| `/complete` \| `/skip` \| `/cancel` | Visit state transitions |
+| `PUT` | `/patients/{id}/requeue` | Return a skipped/cancelled visit to the queue |
+| `GET` | `/patients/{id}/queue-status` | Live position and estimated wait |
+| `GET` | `/admin/overview` \| `/admin/department-load` \| `/admin/analytics` | Operations dashboards |
+
+Interactive docs are available at `http://127.0.0.1:8000/docs`.
 
 ---
 

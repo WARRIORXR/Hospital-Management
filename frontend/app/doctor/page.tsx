@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/api";
+import { formatClock } from "@/lib/format";
 
 type Patient = {
   id: number;
@@ -53,7 +54,8 @@ export default function DoctorPortalPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
   const [activeTab, setActiveTab] = useState<"waiting" | "history">("waiting");
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  // Starts empty: rendering `new Date()` during SSR guarantees a mismatch.
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   // Load departments and doctors on mount
   useEffect(() => {
@@ -123,7 +125,7 @@ export default function DoctorPortalPage() {
   const fetchDepartmentPatients = useCallback(async () => {
     try {
       const response = await fetch(
-        apiUrl(`/patients?department=${selectedDept}`)
+        apiUrl(`/patients?department=${selectedDept}&today=true`)
       );
       if (!response.ok) {
         throw new Error(`Error ${response.status}`);
@@ -172,7 +174,7 @@ export default function DoctorPortalPage() {
     });
 
   const completedPatients = patients.filter(
-    (p) => p.status === "completed" || p.status === "skipped"
+    (p) => p.status === "completed" || p.status === "skipped" || p.status === "cancelled"
   );
 
   const emergencyCount = waitingPatients.filter(
@@ -190,8 +192,18 @@ export default function DoctorPortalPage() {
         apiUrl(`/patients/call-next?department=${selectedDept}`),
         { method: "PUT" }
       );
-      const data = await res.json();
-      if (data.message === "No waiting patients") {
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setMessage({
+          text:
+            typeof data?.detail === "string"
+              ? data.detail
+              : "Could not call the next patient.",
+          type: "info",
+        });
+        await fetchDepartmentPatients();
+      } else if (data?.message === "No waiting patients") {
         setMessage({ text: "No patients currently waiting in this department.", type: "info" });
       } else {
         setMessage({
@@ -210,7 +222,7 @@ export default function DoctorPortalPage() {
 
   const handleUpdateStatus = async (
     patientId: number,
-    action: "consult" | "complete" | "skip" | "call"
+    action: "consult" | "complete" | "skip" | "call" | "requeue"
   ) => {
     setActionLoading(true);
     setMessage(null);
@@ -219,14 +231,26 @@ export default function DoctorPortalPage() {
         apiUrl(`/patients/${patientId}/${action}`),
         { method: "PUT" }
       );
-      if (!res.ok) throw new Error("Status update failed");
-      const updated = await res.json();
+      const updated = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setMessage({
+          text:
+            typeof updated?.detail === "string"
+              ? updated.detail
+              : `Failed to update status to ${action}.`,
+          type: "error",
+        });
+        await fetchDepartmentPatients();
+        return;
+      }
 
       const actionLabels: Record<string, string> = {
         consult: "Consultation started with",
         complete: "Consultation finished for",
         skip: "Marked as skipped for",
         call: "Called specific patient",
+        requeue: "Returned to the waiting queue:",
       };
 
       setMessage({
@@ -312,7 +336,7 @@ export default function DoctorPortalPage() {
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="hidden md:inline">
-                Live (Refreshed {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })})
+                Live (Refreshed {formatClock(lastRefreshed) || "—"})
               </span>
             </div>
 
@@ -639,7 +663,7 @@ export default function DoctorPortalPage() {
                                 {getPriorityBadge(patient.priority)}
                                 {patient.symptoms && (
                                   <span className="text-xs text-slate-500 truncate max-w-xs">
-                                    "{patient.symptoms}"
+                                    &ldquo;{patient.symptoms}&rdquo;
                                   </span>
                                 )}
                               </div>
@@ -691,15 +715,29 @@ export default function DoctorPortalPage() {
                             </p>
                           </div>
 
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-                              patient.status === "completed"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {patient.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+                                patient.status === "completed"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {patient.status}
+                            </span>
+
+                            {(patient.status === "skipped" ||
+                              patient.status === "cancelled") && (
+                              <button
+                                onClick={() => handleUpdateStatus(patient.id, "requeue")}
+                                disabled={actionLoading}
+                                className="rounded-lg border border-blue-200 bg-blue-50/60 px-2.5 py-1 text-xs font-bold text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
+                                title="Return this patient to the waiting queue"
+                              >
+                                Requeue
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

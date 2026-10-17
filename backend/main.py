@@ -1,7 +1,13 @@
 import os
+import re
+import secrets
+from datetime import datetime, timedelta, timezone
+from threading import Lock
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db, SessionLocal
@@ -16,6 +22,24 @@ from schemas.doctor import DoctorCreate, DoctorOut
 # --------------------------------------------------
 
 Base.metadata.create_all(bind=engine)
+
+
+def ensure_schema():
+    """Add columns introduced after the first release to existing databases."""
+    inspector = inspect(engine)
+    if "patients" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("patients")}
+    if "created_at" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE patients ADD COLUMN created_at TIMESTAMP"))
+            connection.execute(
+                text("UPDATE patients SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+            )
+
+
+ensure_schema()
 
 
 def seed_initial_data():
@@ -103,6 +127,124 @@ PRIORITY_ORDER = {
     "regular": 4
 }
 
+HOSPITAL_TIMEZONE = timezone(timedelta(hours=5, minutes=30))  # IST
+ACTIVE_STATUSES = ("waiting", "called", "consulting")
+TERMINAL_STATUSES = ("completed", "skipped", "cancelled")
+PHONE_PATTERN = re.compile(r"^[0-9]{10}$")
+
+
+def today_start_utc() -> datetime:
+    """Naive UTC timestamp for midnight today in the hospital's timezone.
+
+    Patient rows store naive UTC datetimes, so day-scoped queries compare
+    against this value instead of relying on the server's local timezone.
+    """
+    local_now = datetime.now(HOSPITAL_TIMEZONE)
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def get_patient_or_404(db: Session, patient_id: int) -> Patient:
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient
+
+
+def require_status(patient: Patient, allowed: tuple[str, ...], action: str) -> None:
+    """Reject state changes that make no sense for the current visit status."""
+    if patient.status not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot {action} token #{patient.token_number}: "
+                f"its status is '{patient.status}'. Allowed: {', '.join(allowed)}."
+            ),
+        )
+
+
+def save(db: Session, patient: Patient) -> Patient:
+    db.commit()
+    db.refresh(patient)
+    return patient
+
+
+# --------------------------------------------------
+# OTP VERIFICATION
+# --------------------------------------------------
+
+OTP_TTL_MINUTES = 5
+OTP_RESEND_SECONDS = 30
+OTP_MAX_ATTEMPTS = 5
+
+# The prototype has no SMS provider wired up, so the generated code is also
+# returned to the caller. Set OTP_DEBUG=false once a real SMS gateway exists.
+OTP_DEBUG = os.getenv("OTP_DEBUG", "true").strip().lower() not in {"false", "0", "no"}
+
+
+class OtpStore:
+    """In-memory one-time-password store with expiry, resend and attempt limits."""
+
+    def __init__(self) -> None:
+        self._entries: dict[str, dict] = {}
+        self._lock = Lock()
+
+    def issue(self, phone: str) -> tuple[str | None, int]:
+        """Return (code, retry_after_seconds). Code is None while rate limited."""
+        now = datetime.utcnow()
+        with self._lock:
+            entry = self._entries.get(phone)
+            if entry and (now - entry["issued_at"]).total_seconds() < OTP_RESEND_SECONDS:
+                retry_after = OTP_RESEND_SECONDS - int((now - entry["issued_at"]).total_seconds())
+                return None, max(retry_after, 1)
+
+            code = f"{secrets.randbelow(900000) + 100000}"
+            self._entries[phone] = {
+                "code": code,
+                "issued_at": now,
+                "expires_at": now + timedelta(minutes=OTP_TTL_MINUTES),
+                "attempts": 0,
+            }
+            return code, 0
+
+    def verify(self, phone: str, code: str) -> None:
+        """Raise HTTPException unless the code matches and is still valid."""
+        now = datetime.utcnow()
+        with self._lock:
+            entry = self._entries.get(phone)
+            if not entry:
+                raise HTTPException(status_code=400, detail="Request an OTP before verifying.")
+            if now > entry["expires_at"]:
+                self._entries.pop(phone, None)
+                raise HTTPException(status_code=400, detail="This OTP has expired. Request a new one.")
+            if entry["attempts"] >= OTP_MAX_ATTEMPTS:
+                self._entries.pop(phone, None)
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many incorrect attempts. Request a new OTP.",
+                )
+            if entry["code"] != code:
+                entry["attempts"] += 1
+                remaining = OTP_MAX_ATTEMPTS - entry["attempts"]
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Incorrect OTP. {remaining} attempt(s) remaining.",
+                )
+            self._entries.pop(phone, None)
+
+
+OTP_STORE = OtpStore()
+
+
+class OtpRequest(BaseModel):
+    phone: str = Field(..., pattern=r"^[0-9]{10}$")
+
+
+class OtpVerify(BaseModel):
+    phone: str = Field(..., pattern=r"^[0-9]{10}$")
+    code: str = Field(..., pattern=r"^[0-9]{6}$")
+
+
 
 # --------------------------------------------------
 # HOME
@@ -114,6 +256,41 @@ def home():
         "message": "QueueLess API is running",
         "status": "success"
     }
+
+
+@app.get("/health")
+def health(db: Session = Depends(get_db)):
+    """Readiness probe: verifies the API and its database connection."""
+    db.execute(text("SELECT 1"))
+    return {"status": "ok", "database": "reachable"}
+
+
+# --------------------------------------------------
+# MOBILE OTP VERIFICATION
+# --------------------------------------------------
+
+@app.post("/auth/request-otp")
+def request_otp(payload: OtpRequest):
+    code, retry_after = OTP_STORE.issue(payload.phone)
+
+    if code is None:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Please wait {retry_after}s before requesting another OTP.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    return {
+        "message": "OTP sent successfully.",
+        "expires_in_seconds": OTP_TTL_MINUTES * 60,
+        "dev_code": code if OTP_DEBUG else None,
+    }
+
+
+@app.post("/auth/verify-otp")
+def verify_otp(payload: OtpVerify):
+    OTP_STORE.verify(payload.phone, payload.code)
+    return {"verified": True, "phone": payload.phone}
 
 
 # --------------------------------------------------
@@ -159,34 +336,65 @@ def toggle_doctor_availability(doctor_id: int, db: Session = Depends(get_db)):
 # CREATE PATIENT
 # --------------------------------------------------
 
-@app.post("/patients")
+@app.post("/patients", status_code=201)
 def create_patient(
     patient: PatientCreate,
     db: Session = Depends(get_db)
 ):
     dept_code = patient.department.value.lower() if hasattr(patient.department, "value") else str(patient.department).lower()
 
+    name = patient.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Patient name cannot be empty.")
+    if not 1 <= patient.age <= 120:
+        raise HTTPException(status_code=422, detail="Age must be between 1 and 120.")
+
+    # A patient may only hold one live token at a time.
+    active_visit = (
+        db.query(Patient)
+        .filter(
+            Patient.phone == patient.phone,
+            Patient.status.in_(ACTIVE_STATUSES)
+        )
+        .order_by(Patient.id.desc())
+        .first()
+    )
+
+    if active_visit:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    f"You already have token #{active_visit.token_number} for "
+                    f"{active_visit.department} ({active_visit.status})."
+                ),
+                "patient_id": active_visit.id,
+            },
+        )
+
+    # Tokens restart at #1 every hospital day, per department.
     last_patient = (
         db.query(Patient)
-        .filter(Patient.department == dept_code)
+        .filter(
+            Patient.department == dept_code,
+            Patient.created_at >= today_start_utc()
+        )
         .order_by(Patient.token_number.desc())
         .first()
     )
 
-    if last_patient:
-        next_token = last_patient.token_number + 1
-    else:
-        next_token = 1
+    next_token = last_patient.token_number + 1 if last_patient else 1
 
     new_patient = Patient(
-        name=patient.name,
+        name=name,
         age=patient.age,
         phone=patient.phone,
         department=dept_code,
         token_number=next_token,
         status="waiting",
-        symptoms=patient.symptoms,
-        priority=patient.priority
+        symptoms=(patient.symptoms or "").strip() or None,
+        priority=(patient.priority.value if hasattr(patient.priority, "value") else patient.priority) or "regular",
+        created_at=datetime.utcnow()
     )
 
     db.add(new_patient)
@@ -299,10 +507,14 @@ def get_opd_status(db: Session = Depends(get_db)):
 def get_patients(
     department: str | None = None,
     status: str | None = None,
+    today: bool = False,
     db: Session = Depends(get_db)
 ):
 
     query = db.query(Patient)
+
+    if today:
+        query = query.filter(Patient.created_at >= today_start_utc())
 
     if department:
         query = query.filter(
@@ -340,12 +552,24 @@ def get_patient_by_phone(
     db: Session = Depends(get_db)
 ):
 
+    # Prefer a visit that is still live over historical records.
     patient = (
         db.query(Patient)
-        .filter(Patient.phone == phone)
+        .filter(
+            Patient.phone == phone,
+            Patient.status.in_(ACTIVE_STATUSES)
+        )
         .order_by(Patient.id.desc())
         .first()
     )
+
+    if not patient:
+        patient = (
+            db.query(Patient)
+            .filter(Patient.phone == phone)
+            .order_by(Patient.id.desc())
+            .first()
+        )
 
     if not patient:
         raise HTTPException(
@@ -391,24 +615,32 @@ def call_patient(
     db: Session = Depends(get_db)
 ):
 
-    patient = (
+    patient = get_patient_or_404(db, patient_id)
+    require_status(patient, ("waiting", "called"), "call")
+
+    # Only one patient may occupy the consultation room at a time.
+    room_owner = (
         db.query(Patient)
-        .filter(Patient.id == patient_id)
+        .filter(
+            Patient.department == patient.department,
+            Patient.status.in_(("called", "consulting")),
+            Patient.id != patient.id
+        )
         .first()
     )
 
-    if not patient:
+    if room_owner:
         raise HTTPException(
-            status_code=404,
-            detail="Patient not found"
+            status_code=409,
+            detail=(
+                f"Token #{room_owner.token_number} is still in the room. "
+                "Complete or skip that visit first."
+            )
         )
 
     patient.status = "called"
 
-    db.commit()
-    db.refresh(patient)
-
-    return patient
+    return save(db, patient)
 
 
 # --------------------------------------------------
@@ -421,24 +653,12 @@ def consult_patient(
     db: Session = Depends(get_db)
 ):
 
-    patient = (
-        db.query(Patient)
-        .filter(Patient.id == patient_id)
-        .first()
-    )
-
-    if not patient:
-        raise HTTPException(
-            status_code=404,
-            detail="Patient not found"
-        )
+    patient = get_patient_or_404(db, patient_id)
+    require_status(patient, ("called", "consulting"), "start a consultation for")
 
     patient.status = "consulting"
 
-    db.commit()
-    db.refresh(patient)
-
-    return patient
+    return save(db, patient)
 
 
 # --------------------------------------------------
@@ -451,24 +671,12 @@ def complete_patient(
     db: Session = Depends(get_db)
 ):
 
-    patient = (
-        db.query(Patient)
-        .filter(Patient.id == patient_id)
-        .first()
-    )
-
-    if not patient:
-        raise HTTPException(
-            status_code=404,
-            detail="Patient not found"
-        )
+    patient = get_patient_or_404(db, patient_id)
+    require_status(patient, ("called", "consulting"), "complete")
 
     patient.status = "completed"
 
-    db.commit()
-    db.refresh(patient)
-
-    return patient
+    return save(db, patient)
 
 
 # --------------------------------------------------
@@ -481,24 +689,12 @@ def skip_patient(
     db: Session = Depends(get_db)
 ):
 
-    patient = (
-        db.query(Patient)
-        .filter(Patient.id == patient_id)
-        .first()
-    )
-
-    if not patient:
-        raise HTTPException(
-            status_code=404,
-            detail="Patient not found"
-        )
+    patient = get_patient_or_404(db, patient_id)
+    require_status(patient, ("waiting", "called", "consulting"), "skip")
 
     patient.status = "skipped"
 
-    db.commit()
-    db.refresh(patient)
-
-    return patient
+    return save(db, patient)
 
 
 # --------------------------------------------------
@@ -511,24 +707,49 @@ def cancel_patient(
     db: Session = Depends(get_db)
 ):
 
-    patient = (
-        db.query(Patient)
-        .filter(Patient.id == patient_id)
-        .first()
-    )
-
-    if not patient:
-        raise HTTPException(
-            status_code=404,
-            detail="Patient not found"
-        )
+    patient = get_patient_or_404(db, patient_id)
+    require_status(patient, ("waiting", "called"), "cancel")
 
     patient.status = "cancelled"
 
-    db.commit()
-    db.refresh(patient)
+    return save(db, patient)
 
-    return patient
+
+# --------------------------------------------------
+# REQUEUE A SKIPPED / CANCELLED VISIT
+# --------------------------------------------------
+
+@app.put("/patients/{patient_id}/requeue")
+def requeue_patient(
+    patient_id: int,
+    db: Session = Depends(get_db)
+):
+
+    patient = get_patient_or_404(db, patient_id)
+    require_status(patient, ("skipped", "cancelled"), "requeue")
+
+    room_owner = (
+        db.query(Patient)
+        .filter(
+            Patient.department == patient.department,
+            Patient.status.in_(("called", "consulting")),
+            Patient.id != patient.id
+        )
+        .first()
+    )
+
+    if room_owner:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Token #{room_owner.token_number} is still in the room. "
+                "Complete or skip that visit first."
+            )
+        )
+
+    patient.status = "waiting"
+
+    return save(db, patient)
 
 
 # --------------------------------------------------
@@ -541,6 +762,25 @@ def call_next_patient(
     db: Session = Depends(get_db)
 ):
     dept = department.lower()
+
+    room_owner = (
+        db.query(Patient)
+        .filter(
+            Patient.department == dept,
+            Patient.status.in_(("called", "consulting"))
+        )
+        .order_by(Patient.id.desc())
+        .first()
+    )
+
+    if room_owner:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Token #{room_owner.token_number} ({room_owner.name}) is still in the room. "
+                "Complete or skip that visit before calling the next patient."
+            )
+        )
 
     patients = (
         db.query(Patient)
@@ -705,12 +945,19 @@ def get_queue_status(
 
 @app.get("/admin/overview")
 def get_admin_overview(db: Session = Depends(get_db)):
-    total_patients = db.query(Patient).count()
-    waiting_patients = db.query(Patient).filter(Patient.status == "waiting").count()
-    consulting_patients = db.query(Patient).filter(Patient.status == "consulting").count()
-    completed_patients = db.query(Patient).filter(Patient.status == "completed").count()
-    skipped_patients = db.query(Patient).filter(Patient.status == "skipped").count()
-    emergency_cases = db.query(Patient).filter(Patient.priority.in_(["emergency", "elderly", "pregnant"])).count()
+    """Operational counters for the current hospital day."""
+    start_of_day = today_start_utc()
+    todays_visits = db.query(Patient).filter(Patient.created_at >= start_of_day)
+
+    total_patients = todays_visits.count()
+    waiting_patients = todays_visits.filter(Patient.status == "waiting").count()
+    consulting_patients = todays_visits.filter(Patient.status.in_(["called", "consulting"])).count()
+    completed_patients = todays_visits.filter(Patient.status == "completed").count()
+    skipped_patients = todays_visits.filter(Patient.status == "skipped").count()
+    cancelled_patients = todays_visits.filter(Patient.status == "cancelled").count()
+    emergency_cases = todays_visits.filter(
+        Patient.priority.in_(["emergency", "elderly", "pregnant"])
+    ).count()
 
     total_doctors = db.query(Doctor).count()
     active_doctors = db.query(Doctor).filter(Doctor.is_available == True).count()
@@ -728,18 +975,21 @@ def get_admin_overview(db: Session = Depends(get_db)):
         "consulting_patients": consulting_patients,
         "completed_patients": completed_patients,
         "skipped_patients": skipped_patients,
+        "cancelled_patients": cancelled_patients,
         "emergency_cases": emergency_cases,
         "total_doctors": total_doctors,
         "active_doctors": active_doctors,
         "open_opds": open_opds,
         "avg_wait_minutes": avg_wait,
-        "avg_consultation_time": AVERAGE_CONSULTATION_TIME
+        "avg_consultation_time": AVERAGE_CONSULTATION_TIME,
+        "day_start_utc": start_of_day.isoformat()
     }
 
 
 @app.get("/admin/department-load")
 def get_department_load(db: Session = Depends(get_db)):
     departments = db.query(Department).filter(Department.is_active == True).all()
+    start_of_day = today_start_utc()
     results = []
 
     for dept in departments:
@@ -747,10 +997,14 @@ def get_department_load(db: Session = Depends(get_db)):
         doctor = db.query(Doctor).filter(Doctor.department_id == dept.id).first()
         schedule = db.query(OPDSchedule).filter(OPDSchedule.department_id == dept.id).first()
 
-        waiting = db.query(Patient).filter(Patient.department == dept_code, Patient.status == "waiting").count()
-        consulting = db.query(Patient).filter(Patient.department == dept_code, Patient.status.in_(["called", "consulting"])).count()
-        completed = db.query(Patient).filter(Patient.department == dept_code, Patient.status == "completed").count()
-        total = db.query(Patient).filter(Patient.department == dept_code).count()
+        todays_visits = db.query(Patient).filter(
+            Patient.department == dept_code,
+            Patient.created_at >= start_of_day
+        )
+        waiting = todays_visits.filter(Patient.status == "waiting").count()
+        consulting = todays_visits.filter(Patient.status.in_(["called", "consulting"])).count()
+        completed = todays_visits.filter(Patient.status == "completed").count()
+        total = todays_visits.count()
 
         est_wait = waiting * AVERAGE_CONSULTATION_TIME
 
@@ -776,7 +1030,11 @@ def get_department_load(db: Session = Depends(get_db)):
         # Active serving token
         active_patient = (
             db.query(Patient)
-            .filter(Patient.department == dept_code, Patient.status.in_(["consulting", "called"]))
+            .filter(
+                Patient.department == dept_code,
+                Patient.status.in_(["consulting", "called"]),
+                Patient.created_at >= start_of_day
+            )
             .order_by(Patient.status.desc(), Patient.token_number.desc())
             .first()
         )
@@ -806,14 +1064,19 @@ def get_department_load(db: Session = Depends(get_db)):
 @app.get("/admin/analytics")
 def get_admin_analytics(db: Session = Depends(get_db)):
     departments = db.query(Department).filter(Department.is_active == True).all()
+    start_of_day = today_start_utc()
 
     # Department breakdown
     dept_stats = []
     for dept in departments:
         dept_code = dept.code.lower()
-        w = db.query(Patient).filter(Patient.department == dept_code, Patient.status == "waiting").count()
-        c = db.query(Patient).filter(Patient.department == dept_code, Patient.status == "completed").count()
-        tot = db.query(Patient).filter(Patient.department == dept_code).count()
+        todays_visits = db.query(Patient).filter(
+            Patient.department == dept_code,
+            Patient.created_at >= start_of_day
+        )
+        w = todays_visits.filter(Patient.status == "waiting").count()
+        c = todays_visits.filter(Patient.status == "completed").count()
+        tot = todays_visits.count()
         dept_stats.append({
             "name": dept.name,
             "code": dept.code,
@@ -822,40 +1085,61 @@ def get_admin_analytics(db: Session = Depends(get_db)):
             "total": tot
         })
 
-    # Priority distribution
+    # Priority distribution for today
     priorities = ["emergency", "elderly", "pregnant", "follow_up", "regular"]
     priority_counts = []
     for prio in priorities:
-        cnt = db.query(Patient).filter(Patient.priority == prio).count()
+        cnt = (
+            db.query(Patient)
+            .filter(
+                Patient.priority == prio,
+                Patient.created_at >= start_of_day
+            )
+            .count()
+        )
         priority_counts.append({
             "priority": prio.replace("_", " ").title(),
             "count": cnt
         })
 
-    # Hourly volume distribution (simulated realistic operational curve based on actual total)
-    total_patients = db.query(Patient).count()
+    # Hourly volume distribution, bucketed from real registration timestamps
     hours = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"]
-    # Distribution curve weights peaking around 10am-12pm
-    weights = [0.05, 0.12, 0.22, 0.20, 0.14, 0.08, 0.07, 0.06, 0.04, 0.02]
-    hourly_flow = []
-    for h, w in zip(hours, weights):
-        volume = max(1, round(total_patients * w)) if total_patients > 0 else 0
-        hourly_flow.append({
-            "hour": h,
-            "patients": volume,
-            "capacity": 15
-        })
+    buckets = {hour: 0 for hour in hours}
+    registrations = (
+        db.query(Patient.created_at)
+        .filter(Patient.created_at >= start_of_day)
+        .all()
+    )
+    for (created_at,) in registrations:
+        if created_at is None:
+            continue
+        local_hour = created_at.replace(tzinfo=timezone.utc).astimezone(HOSPITAL_TIMEZONE).hour
+        label = f"{local_hour:02d}:00"
+        if label in buckets:
+            buckets[label] += 1
 
-    # Doctor utilization
+    hourly_flow = [
+        {"hour": hour, "patients": buckets[hour], "capacity": 15}
+        for hour in hours
+    ]
+
+    # Doctor utilization, based on today's completions versus remaining queue
     doctors = db.query(Doctor).all()
     doctor_utilization = []
     for doc in doctors:
         dept = db.query(Department).filter(Department.id == doc.department_id).first()
         dept_code = dept.code.lower() if dept else ""
-        completed_by_dept = db.query(Patient).filter(Patient.department == dept_code, Patient.status == "completed").count()
-        waiting_for_dept = db.query(Patient).filter(Patient.department == dept_code, Patient.status == "waiting").count()
+        todays_visits = db.query(Patient).filter(
+            Patient.department == dept_code,
+            Patient.created_at >= start_of_day
+        )
+        completed_by_dept = todays_visits.filter(Patient.status == "completed").count()
+        waiting_for_dept = todays_visits.filter(Patient.status == "waiting").count()
 
-        util_rate = min(100, max(20, (completed_by_dept + (1 if not doc.is_available else 0)) * 25)) if doc.is_available else 10
+        handled = completed_by_dept + waiting_for_dept
+        util_rate = round(completed_by_dept / handled * 100) if handled else 0
+        if not doc.is_available:
+            util_rate = 0
 
         doctor_utilization.append({
             "id": doc.id,

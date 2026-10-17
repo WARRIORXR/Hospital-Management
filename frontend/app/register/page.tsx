@@ -116,26 +116,31 @@ export default function RegisterPage() {
         }
       );
 
-      if (!response.ok) {
-        const errorData =
-          await response.json().catch(() => null);
+      const data =
+        await response.json().catch(() => null);
 
-        console.error(
-          "Backend error:",
-          errorData
-        );
+      if (!response.ok) {
+        const detail = data?.detail;
+
+        // 409: this mobile number already holds a live token.
+        if (
+          response.status === 409 &&
+          detail &&
+          typeof detail === "object" &&
+          typeof detail.patient_id === "number"
+        ) {
+          sessionStorage.setItem("phoneVerified", "true");
+          sessionStorage.setItem("verifiedPhone", verifiedPhone);
+          router.push(`/queue/${detail.patient_id}`);
+          return;
+        }
 
         throw new Error(
-          `Backend returned status ${response.status}`
+          typeof detail === "string"
+            ? detail
+            : "Unable to create your token right now."
         );
       }
-
-      const data = await response.json();
-
-      console.log(
-        "Patient created successfully:",
-        data
-      );
 
       router.push(`/queue/${data.id}`);
 
@@ -146,7 +151,9 @@ export default function RegisterPage() {
       );
 
       setServerError(
-        "Unable to create your token. Please make sure the QueueLess server is running."
+        error instanceof Error && error.message
+          ? error.message
+          : "Unable to create your token. Please make sure the QueueLess server is running."
       );
 
     } finally {
@@ -394,7 +401,7 @@ export default function RegisterPage() {
               </select>
 
               <p className="mt-2 text-xs leading-5 text-slate-400">
-                Priority should follow the hospital's
+                Priority should follow the hospital&apos;s
                 authorized workflow rules.
               </p>
 

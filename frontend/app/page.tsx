@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { API_BASE_URL, apiUrl } from "@/lib/api";
+import { formatClock } from "@/lib/format";
 
 type OpdData = {
   department: string;
@@ -357,9 +358,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-500 font-medium">
                 {lastUpdated ? (
-                  <span>
-                    Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </span>
+                  <span>Updated {formatClock(lastUpdated)}</span>
                 ) : (
                   <span>Fetching live data...</span>
                 )}
