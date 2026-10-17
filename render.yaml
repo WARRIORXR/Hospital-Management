@@ -1,0 +1,38 @@
+databases:
+  - name: queueless-db
+    databaseName: queueless
+    user: queueless
+    plan: free
+    region: singapore
+
+services:
+  - type: web
+    name: queueless-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: queueless-db
+          property: connectionString
+      - key: FRONTEND_ORIGINS
+        value: https://queueless-web.onrender.com
+
+  - type: web
+    name: queueless-web
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: NEXT_PUBLIC_API_URL
+        value: https://queueless-api-lvf5.onrender.com
