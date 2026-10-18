@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { API_BASE_URL, apiUrl } from "@/lib/api";
 import { formatClock } from "@/lib/format";
@@ -81,13 +81,23 @@ export default function AdminDashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState("");
 
+  const inFlight = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchData = useCallback(async (manual = false) => {
+    if (inFlight.current) return;
+
+    inFlight.current = true;
     if (manual) setIsRefreshing(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const [ovRes, dlRes, anRes] = await Promise.all([
-        fetch(apiUrl("/admin/overview")),
-        fetch(apiUrl("/admin/department-load")),
-        fetch(apiUrl("/admin/analytics")),
+        fetch(apiUrl("/admin/overview"), { signal: controller.signal }),
+        fetch(apiUrl("/admin/department-load"), { signal: controller.signal }),
+        fetch(apiUrl("/admin/analytics"), { signal: controller.signal }),
       ]);
 
       if (!ovRes.ok || !dlRes.ok || !anRes.ok) {
@@ -104,21 +114,52 @@ export default function AdminDashboardPage() {
       setLastUpdated(new Date());
       setError("");
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("Admin dashboard fetch error:", err);
       setError("Unable to connect to hospital analytics service.");
     } finally {
+      inFlight.current = false;
       setLoading(false);
       setIsRefreshing(false);
     }
   }, []);
 
+  // Poll only while the tab is visible; cancel in-flight work on unmount.
   useEffect(() => {
     fetchData();
-    // Poll every 5 seconds for real-time monitoring
-    const timer = setInterval(() => {
-      fetchData(false);
-    }, 5000);
-    return () => clearInterval(timer);
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (timer === null) {
+        timer = setInterval(() => fetchData(false), 5000);
+      }
+    };
+
+    const stop = () => {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        fetchData(false);
+        start();
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      abortRef.current?.abort();
+    };
   }, [fetchData]);
 
   const activeBottlenecks = deptLoads.filter((d) => d.bottleneck_alert);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/api";
 import { formatClock } from "@/lib/format";
@@ -122,10 +122,20 @@ export default function DoctorPortalPage() {
   // --------------------------------------------------
   // FETCH PATIENTS FOR DEPARTMENT
   // --------------------------------------------------
+  const inFlight = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchDepartmentPatients = useCallback(async () => {
+    if (inFlight.current) return;
+
+    inFlight.current = true;
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const response = await fetch(
-        apiUrl(`/patients?department=${selectedDept}&today=true`)
+        apiUrl(`/patients?department=${selectedDept}&today=true`),
+        { signal: controller.signal }
       );
       if (!response.ok) {
         throw new Error(`Error ${response.status}`);
@@ -134,22 +144,51 @@ export default function DoctorPortalPage() {
       setPatients(data);
       setLastRefreshed(new Date());
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("Failed to fetch department patients:", err);
     } finally {
+      inFlight.current = false;
       setLoading(false);
     }
   }, [selectedDept]);
 
+  // Poll only while the tab is visible; cancel in-flight work on unmount.
   useEffect(() => {
     setLoading(true);
     fetchDepartmentPatients();
 
-    // Auto-refresh queue every 4 seconds
-    const timer = setInterval(() => {
-      fetchDepartmentPatients();
-    }, 4000);
+    let timer: ReturnType<typeof setInterval> | null = null;
 
-    return () => clearInterval(timer);
+    const start = () => {
+      if (timer === null) {
+        timer = setInterval(fetchDepartmentPatients, 4000);
+      }
+    };
+
+    const stop = () => {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        fetchDepartmentPatients();
+        start();
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      abortRef.current?.abort();
+    };
   }, [fetchDepartmentPatients]);
 
   // Derive Patient Subsets

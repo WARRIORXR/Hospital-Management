@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useI18n();
 
   const [verifiedPhone, setVerifiedPhone] = useState("");
 
@@ -55,21 +58,20 @@ export default function RegisterPage() {
     } = {};
 
     if (!name.trim()) {
-      newErrors.name = "Please enter your name.";
+      newErrors.name = t("register.errorName");
     }
 
     if (!age) {
-      newErrors.age = "Please enter your age.";
+      newErrors.age = t("register.errorAge");
     } else if (
       Number(age) < 1 ||
       Number(age) > 120
     ) {
-      newErrors.age = "Please enter a valid age.";
+      newErrors.age = t("register.errorAgeValid");
     }
 
     if (!department) {
-      newErrors.department =
-        "Please select a department.";
+      newErrors.department = t("register.errorDepartment");
     }
 
     setErrors(newErrors);
@@ -138,7 +140,7 @@ export default function RegisterPage() {
         throw new Error(
           typeof detail === "string"
             ? detail
-            : "Unable to create your token right now."
+            : t("register.errorGeneric")
         );
       }
 
@@ -153,7 +155,7 @@ export default function RegisterPage() {
       setServerError(
         error instanceof Error && error.message
           ? error.message
-          : "Unable to create your token. Please make sure the QueueLess server is running."
+          : t("register.errorGeneric")
       );
 
     } finally {
@@ -179,13 +181,16 @@ export default function RegisterPage() {
           </p>
 
           <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-slate-950">
-            Get Your Token
+            {t("register.title")}
           </h1>
 
           <p className="mt-3 text-slate-500">
-            Your mobile number has been verified.
-            Complete your details to join the queue.
+            {t("register.subtitle")}
           </p>
+
+          <div className="mt-4">
+            <LanguageSwitcher />
+          </div>
 
         </div>
 
@@ -206,7 +211,7 @@ export default function RegisterPage() {
               <div>
 
                 <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-                  Mobile Verified
+                  {t("register.verified")}
                 </p>
 
                 <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -234,7 +239,7 @@ export default function RegisterPage() {
                 htmlFor="name"
                 className="mb-2 block text-sm font-semibold text-slate-700"
               >
-                Full Name
+                {t("register.nameLabel")}
               </label>
 
               <input
@@ -244,7 +249,7 @@ export default function RegisterPage() {
                 onChange={(e) =>
                   setName(e.target.value)
                 }
-                placeholder="Enter your full name"
+                placeholder={t("register.namePlaceholder")}
                 className={`w-full rounded-xl border ${
                   errors.name
                     ? "border-red-400"
@@ -268,7 +273,7 @@ export default function RegisterPage() {
                 htmlFor="age"
                 className="mb-2 block text-sm font-semibold text-slate-700"
               >
-                Age
+                {t("register.ageLabel")}
               </label>
 
               <input
@@ -280,7 +285,7 @@ export default function RegisterPage() {
                 onChange={(e) =>
                   setAge(e.target.value)
                 }
-                placeholder="Enter age"
+                placeholder={t("register.agePlaceholder")}
                 className={`w-full rounded-xl border ${
                   errors.age
                     ? "border-red-400"
@@ -304,7 +309,7 @@ export default function RegisterPage() {
                 htmlFor="department"
                 className="mb-2 block text-sm font-semibold text-slate-700"
               >
-                Department
+                {t("register.departmentLabel")}
               </label>
 
               <select
@@ -321,31 +326,31 @@ export default function RegisterPage() {
               >
 
                 <option value="">
-                  Select department
+                  {t("register.departmentPlaceholder")}
                 </option>
 
                 <option value="general">
-                  General
+                  {t("dept.general")}
                 </option>
 
                 <option value="dental">
-                  Dental
+                  {t("dept.dental")}
                 </option>
 
                 <option value="cardiology">
-                  Cardiology
+                  {t("dept.cardiology")}
                 </option>
 
                 <option value="gastro">
-                  Gastro
+                  {t("dept.gastro")}
                 </option>
 
                 <option value="orthopedics">
-                  Orthopedics
+                  {t("dept.orthopedics")}
                 </option>
 
                 <option value="neurology">
-                  Neurology
+                  {t("dept.neurology")}
                 </option>
 
               </select>
@@ -366,7 +371,7 @@ export default function RegisterPage() {
                 htmlFor="priority"
                 className="mb-2 block text-sm font-semibold text-slate-700"
               >
-                Priority
+                {t("register.priorityLabel")}
               </label>
 
               <select
@@ -379,30 +384,29 @@ export default function RegisterPage() {
               >
 
                 <option value="regular">
-                  Regular
+                  {t("priority.regular")}
                 </option>
 
                 <option value="emergency">
-                  Emergency
+                  {t("priority.emergency")}
                 </option>
 
                 <option value="elderly">
-                  Elderly
+                  {t("priority.elderly")}
                 </option>
 
                 <option value="pregnant">
-                  Pregnant
+                  {t("priority.pregnant")}
                 </option>
 
                 <option value="follow_up">
-                  Follow-up
+                  {t("priority.follow_up")}
                 </option>
 
               </select>
 
               <p className="mt-2 text-xs leading-5 text-slate-400">
-                Priority should follow the hospital&apos;s
-                authorized workflow rules.
+                {t("register.priorityNote")}
               </p>
 
             </div>
@@ -415,9 +419,9 @@ export default function RegisterPage() {
                 htmlFor="symptoms"
                 className="mb-2 block text-sm font-semibold text-slate-700"
               >
-                Symptoms
+                {t("register.symptomsLabel")}
                 <span className="ml-1 font-normal text-slate-400">
-                  (Optional)
+                  {t("register.optional")}
                 </span>
               </label>
 
@@ -428,7 +432,7 @@ export default function RegisterPage() {
                   setSymptoms(e.target.value)
                 }
                 rows={4}
-                placeholder="Briefly describe your symptoms"
+                placeholder={t("register.symptomsPlaceholder")}
                 className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
 
@@ -457,14 +461,13 @@ export default function RegisterPage() {
             >
 
               {isSubmitting
-                ? "Creating Your Token..."
-                : "Get My Token"}
+                ? t("register.submitting")
+                : t("register.submit")}
 
             </button>
 
             <p className="text-center text-xs text-slate-400">
-              Your verified mobile number will be linked
-              to this queue registration.
+              {t("register.linkNote")}
             </p>
 
           </form>
@@ -474,7 +477,7 @@ export default function RegisterPage() {
         {/* FOOTER */}
 
         <div className="mt-5 text-center text-xs text-slate-400">
-          🔒 Your information is securely handled by QueueLess.
+          {t("register.security")}
         </div>
 
       </div>

@@ -7,7 +7,7 @@ from threading import Lock
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db, SessionLocal
@@ -410,7 +410,11 @@ def create_patient(
 
 @app.get("/opds")
 def get_opd_status(db: Session = Depends(get_db)):
-    # Source of truth: PostgreSQL Department & Doctor tables
+    """Public OPD snapshot.
+
+    Every patient client polls this endpoint, so it issues a fixed handful of
+    aggregate queries instead of four queries per department.
+    """
     active_departments = (
         db.query(Department)
         .filter(Department.is_active == True)
@@ -418,71 +422,85 @@ def get_opd_status(db: Session = Depends(get_db)):
         .all()
     )
 
+    if not active_departments:
+        return []
+
+    dept_codes = [dept.code.lower() for dept in active_departments]
+    dept_ids = [dept.id for dept in active_departments]
+    start_of_day = today_start_utc()
+
+    waiting_by_dept = dict(
+        db.query(Patient.department, func.count(Patient.id))
+        .filter(
+            Patient.department.in_(dept_codes),
+            Patient.status == "waiting",
+            Patient.created_at >= start_of_day
+        )
+        .group_by(Patient.department)
+        .all()
+    )
+
+    # "consulting" sorts after "called", so desc() surfaces the patient in the
+    # room ahead of one who has only been announced.
+    active_by_dept: dict[str, int] = {}
+    for dept_code, token_number in (
+        db.query(Patient.department, Patient.token_number)
+        .filter(
+            Patient.department.in_(dept_codes),
+            Patient.status.in_(["called", "consulting"]),
+            Patient.created_at >= start_of_day
+        )
+        .order_by(Patient.status.desc(), Patient.token_number.desc())
+        .all()
+    ):
+        active_by_dept.setdefault(dept_code, token_number)
+
+    doctors_by_id = {
+        doctor.id: doctor
+        for doctor in db.query(Doctor)
+        .filter(Doctor.department_id.in_(dept_ids))
+        .all()
+    }
+
+    schedules_by_dept = {
+        schedule.department_id: schedule
+        for schedule in db.query(OPDSchedule)
+        .filter(
+            OPDSchedule.department_id.in_(dept_ids),
+            OPDSchedule.is_active == True
+        )
+        .all()
+    }
+
+    status_labels = {
+        "break": "Doctor on Break",
+        "busy": "Busy",
+        "available": "Available"
+    }
+
     result = []
 
     for dept in active_departments:
         dept_code = dept.code.lower()
 
-        # Find assigned doctor and schedule
-        schedule = (
-            db.query(OPDSchedule)
-            .filter(
-                OPDSchedule.department_id == dept.id,
-                OPDSchedule.is_active == True
+        schedule = schedules_by_dept.get(dept.id)
+        doctor = doctors_by_id.get(schedule.doctor_id) if schedule else None
+        if doctor is None:
+            doctor = next(
+                (doc for doc in doctors_by_id.values() if doc.department_id == dept.id),
+                None
             )
-            .first()
-        )
 
-        doctor = (
-            db.query(Doctor)
-            .filter(Doctor.id == schedule.doctor_id)
-            .first()
-            if schedule
-            else (
-                db.query(Doctor)
-                .filter(Doctor.department_id == dept.id)
-                .first()
-            )
-        )
-
-        # Find waiting patients
-        waiting_patients = (
-            db.query(Patient)
-            .filter(
-                Patient.department == dept_code,
-                Patient.status == "waiting"
-            )
-            .all()
-        )
-        waiting_count = len(waiting_patients)
-
-        # Find active serving patient
-        current_patient = (
-            db.query(Patient)
-            .filter(
-                Patient.department == dept_code,
-                Patient.status.in_(["consulting", "called"])
-            )
-            .order_by(
-                Patient.status.desc(),
-                Patient.token_number.desc()
-            )
-            .first()
-        )
-
-        current_token = current_patient.token_number if current_patient else None
-
-        # Estimated wait time
+        waiting_count = waiting_by_dept.get(dept_code, 0)
+        current_token = active_by_dept.get(dept_code)
         estimated_wait = waiting_count * AVERAGE_CONSULTATION_TIME
-        wait_time = "No wait" if estimated_wait == 0 else f"{estimated_wait} min"
 
-        # Determine OPD status dynamically
         if doctor and not doctor.is_available:
-            status = "Doctor on Break"
+            status_code = "break"
         elif waiting_count >= 15:
-            status = "Busy"
+            status_code = "busy"
         else:
-            status = "Available"
+            status_code = "available"
 
         result.append({
             "department": dept.name,
@@ -490,9 +508,11 @@ def get_opd_status(db: Session = Depends(get_db)):
             "doctor": doctor.name if doctor else "Attending Specialist",
             "room": doctor.room_number if doctor else "OPD",
             "timing": schedule.timing if schedule else "9 AM - 5 PM",
-            "status": status,
+            "status": status_labels[status_code],
+            "status_code": status_code,
             "waiting": waiting_count,
-            "wait_time": wait_time,
+            "wait_time": "No wait" if estimated_wait == 0 else f"{estimated_wait} min",
+            "wait_minutes": estimated_wait,
             "current_token": current_token
         })
 
@@ -947,21 +967,42 @@ def get_queue_status(
 def get_admin_overview(db: Session = Depends(get_db)):
     """Operational counters for the current hospital day."""
     start_of_day = today_start_utc()
-    todays_visits = db.query(Patient).filter(Patient.created_at >= start_of_day)
+    todays_filter = Patient.created_at >= start_of_day
 
-    total_patients = todays_visits.count()
-    waiting_patients = todays_visits.filter(Patient.status == "waiting").count()
-    consulting_patients = todays_visits.filter(Patient.status.in_(["called", "consulting"])).count()
-    completed_patients = todays_visits.filter(Patient.status == "completed").count()
-    skipped_patients = todays_visits.filter(Patient.status == "skipped").count()
-    cancelled_patients = todays_visits.filter(Patient.status == "cancelled").count()
-    emergency_cases = todays_visits.filter(
-        Patient.priority.in_(["emergency", "elderly", "pregnant"])
-    ).count()
+    # Single grouped query instead of one count per status.
+    status_counts = dict(
+        db.query(Patient.status, func.count(Patient.id))
+        .filter(todays_filter)
+        .group_by(Patient.status)
+        .all()
+    )
 
-    total_doctors = db.query(Doctor).count()
-    active_doctors = db.query(Doctor).filter(Doctor.is_available == True).count()
-    open_opds = db.query(Department).filter(Department.is_active == True).count()
+    total_patients = sum(status_counts.values())
+    waiting_patients = status_counts.get("waiting", 0)
+    consulting_patients = status_counts.get("called", 0) + status_counts.get("consulting", 0)
+    completed_patients = status_counts.get("completed", 0)
+    skipped_patients = status_counts.get("skipped", 0)
+    cancelled_patients = status_counts.get("cancelled", 0)
+    emergency_cases = (
+        db.query(func.count(Patient.id))
+        .filter(
+            todays_filter,
+            Patient.priority.in_(["emergency", "elderly", "pregnant"])
+        )
+        .scalar()
+        or 0
+    )
+
+    total_doctors = db.query(func.count(Doctor.id)).scalar() or 0
+    active_doctors = (
+        db.query(func.count(Doctor.id)).filter(Doctor.is_available == True).scalar() or 0
+    )
+    open_opds = (
+        db.query(func.count(Department.id))
+        .filter(Department.is_active == True)
+        .scalar()
+        or 0
+    )
 
     avg_wait = (
         round((waiting_patients * AVERAGE_CONSULTATION_TIME) / (open_opds or 1))
@@ -990,21 +1031,65 @@ def get_admin_overview(db: Session = Depends(get_db)):
 def get_department_load(db: Session = Depends(get_db)):
     departments = db.query(Department).filter(Department.is_active == True).all()
     start_of_day = today_start_utc()
+
+    if not departments:
+        return []
+
+    dept_ids = [dept.id for dept in departments]
+    dept_codes = [dept.code.lower() for dept in departments]
+
+    doctors_by_dept = {
+        doctor.department_id: doctor
+        for doctor in db.query(Doctor)
+        .filter(Doctor.department_id.in_(dept_ids))
+        .all()
+    }
+
+    schedules_by_dept = {
+        schedule.department_id: schedule
+        for schedule in db.query(OPDSchedule)
+        .filter(OPDSchedule.department_id.in_(dept_ids))
+        .all()
+    }
+
+    # One grouped query replaces four count queries per department.
+    counts: dict[str, dict[str, int]] = {}
+    for dept_code, status, visit_count in (
+        db.query(Patient.department, Patient.status, func.count(Patient.id))
+        .filter(
+            Patient.department.in_(dept_codes),
+            Patient.created_at >= start_of_day
+        )
+        .group_by(Patient.department, Patient.status)
+        .all()
+    ):
+        counts.setdefault(dept_code, {})[status or "unknown"] = visit_count
+
+    active_by_dept: dict[str, int] = {}
+    for dept_code, token_number in (
+        db.query(Patient.department, Patient.token_number)
+        .filter(
+            Patient.department.in_(dept_codes),
+            Patient.status.in_(["called", "consulting"]),
+            Patient.created_at >= start_of_day
+        )
+        .order_by(Patient.status.desc(), Patient.token_number.desc())
+        .all()
+    ):
+        active_by_dept.setdefault(dept_code, token_number)
+
     results = []
 
     for dept in departments:
         dept_code = dept.code.lower()
-        doctor = db.query(Doctor).filter(Doctor.department_id == dept.id).first()
-        schedule = db.query(OPDSchedule).filter(OPDSchedule.department_id == dept.id).first()
+        doctor = doctors_by_dept.get(dept.id)
+        schedule = schedules_by_dept.get(dept.id)
 
-        todays_visits = db.query(Patient).filter(
-            Patient.department == dept_code,
-            Patient.created_at >= start_of_day
-        )
-        waiting = todays_visits.filter(Patient.status == "waiting").count()
-        consulting = todays_visits.filter(Patient.status.in_(["called", "consulting"])).count()
-        completed = todays_visits.filter(Patient.status == "completed").count()
-        total = todays_visits.count()
+        dept_counts = counts.get(dept_code, {})
+        waiting = dept_counts.get("waiting", 0)
+        consulting = dept_counts.get("called", 0) + dept_counts.get("consulting", 0)
+        completed = dept_counts.get("completed", 0)
+        total = sum(dept_counts.values())
 
         est_wait = waiting * AVERAGE_CONSULTATION_TIME
 
@@ -1027,18 +1112,6 @@ def get_department_load(db: Session = Depends(get_db)):
             bottleneck_alert = False
             suggestion = "Operating within nominal queue capacity."
 
-        # Active serving token
-        active_patient = (
-            db.query(Patient)
-            .filter(
-                Patient.department == dept_code,
-                Patient.status.in_(["consulting", "called"]),
-                Patient.created_at >= start_of_day
-            )
-            .order_by(Patient.status.desc(), Patient.token_number.desc())
-            .first()
-        )
-
         results.append({
             "department_id": dept.id,
             "department_name": dept.name,
@@ -1052,7 +1125,7 @@ def get_department_load(db: Session = Depends(get_db)):
             "completed": completed,
             "total_registered": total,
             "avg_wait_minutes": est_wait,
-            "current_token": active_patient.token_number if active_patient else None,
+            "current_token": active_by_dept.get(dept_code),
             "load_level": load_level,
             "bottleneck_alert": bottleneck_alert,
             "suggestion": suggestion
@@ -1066,41 +1139,49 @@ def get_admin_analytics(db: Session = Depends(get_db)):
     departments = db.query(Department).filter(Department.is_active == True).all()
     start_of_day = today_start_utc()
 
+    dept_codes = [dept.code.lower() for dept in departments]
+
+    # One grouped query feeds both the department breakdown and doctor utilization.
+    counts: dict[str, dict[str, int]] = {}
+    if dept_codes:
+        for dept_code, status, visit_count in (
+            db.query(Patient.department, Patient.status, func.count(Patient.id))
+            .filter(
+                Patient.department.in_(dept_codes),
+                Patient.created_at >= start_of_day
+            )
+            .group_by(Patient.department, Patient.status)
+            .all()
+        ):
+            counts.setdefault(dept_code, {})[status or "unknown"] = visit_count
+
     # Department breakdown
     dept_stats = []
     for dept in departments:
-        dept_code = dept.code.lower()
-        todays_visits = db.query(Patient).filter(
-            Patient.department == dept_code,
-            Patient.created_at >= start_of_day
-        )
-        w = todays_visits.filter(Patient.status == "waiting").count()
-        c = todays_visits.filter(Patient.status == "completed").count()
-        tot = todays_visits.count()
+        dept_counts = counts.get(dept.code.lower(), {})
         dept_stats.append({
             "name": dept.name,
             "code": dept.code,
-            "waiting": w,
-            "completed": c,
-            "total": tot
+            "waiting": dept_counts.get("waiting", 0),
+            "completed": dept_counts.get("completed", 0),
+            "total": sum(dept_counts.values())
         })
 
-    # Priority distribution for today
+    # Priority distribution for today (one grouped query instead of five)
     priorities = ["emergency", "elderly", "pregnant", "follow_up", "regular"]
-    priority_counts = []
-    for prio in priorities:
-        cnt = (
-            db.query(Patient)
-            .filter(
-                Patient.priority == prio,
-                Patient.created_at >= start_of_day
-            )
-            .count()
-        )
-        priority_counts.append({
+    priority_totals = dict(
+        db.query(Patient.priority, func.count(Patient.id))
+        .filter(Patient.created_at >= start_of_day)
+        .group_by(Patient.priority)
+        .all()
+    )
+    priority_counts = [
+        {
             "priority": prio.replace("_", " ").title(),
-            "count": cnt
-        })
+            "count": priority_totals.get(prio, 0)
+        }
+        for prio in priorities
+    ]
 
     # Hourly volume distribution, bucketed from real registration timestamps
     hours = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"]
@@ -1125,16 +1206,13 @@ def get_admin_analytics(db: Session = Depends(get_db)):
 
     # Doctor utilization, based on today's completions versus remaining queue
     doctors = db.query(Doctor).all()
+    department_names = {dept.id: dept.name for dept in departments}
+    department_codes = {dept.id: dept.code.lower() for dept in departments}
     doctor_utilization = []
     for doc in doctors:
-        dept = db.query(Department).filter(Department.id == doc.department_id).first()
-        dept_code = dept.code.lower() if dept else ""
-        todays_visits = db.query(Patient).filter(
-            Patient.department == dept_code,
-            Patient.created_at >= start_of_day
-        )
-        completed_by_dept = todays_visits.filter(Patient.status == "completed").count()
-        waiting_for_dept = todays_visits.filter(Patient.status == "waiting").count()
+        dept_counts = counts.get(department_codes.get(doc.department_id, ""), {})
+        completed_by_dept = dept_counts.get("completed", 0)
+        waiting_for_dept = dept_counts.get("waiting", 0)
 
         handled = completed_by_dept + waiting_for_dept
         util_rate = round(completed_by_dept / handled * 100) if handled else 0
@@ -1144,7 +1222,7 @@ def get_admin_analytics(db: Session = Depends(get_db)):
         doctor_utilization.append({
             "id": doc.id,
             "doctor": doc.name,
-            "department": dept.name if dept else "General",
+            "department": department_names.get(doc.department_id, "General"),
             "room": doc.room_number,
             "is_available": doc.is_available,
             "patients_served": completed_by_dept,
