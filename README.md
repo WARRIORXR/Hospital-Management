@@ -1,6 +1,26 @@
 # QueueLess 🏥
 ### Intelligent Hospital Queue & Patient Flow Management System
 
+<div align="center">
+
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/WARRIORXR/Hospital-Management)
+[![Cloudflare Pages](https://img.shields.io/badge/Cloudflare_Pages-Frontend-F38020?style=for-the-badge&logo=cloudflare)](https://queueless.pages.dev)
+[![Render Backend](https://img.shields.io/badge/Render-FastAPI_Backend-46E3B7?style=for-the-badge&logo=render)](https://queueless-api-lvf5.onrender.com)
+[![API Documentation](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-lvf5.onrender.com/docs)
+
+</div>
+
+---
+
+### 🌐 Live Deployment Links
+- **Cloudflare Pages (Frontend):** [https://queueless.pages.dev](https://queueless.pages.dev)
+- **Render Web Mirror (Frontend):** [https://queueless-web.onrender.com](https://queueless-web.onrender.com)
+- **FastAPI Backend (API):** [https://queueless-api-lvf5.onrender.com](https://queueless-api-lvf5.onrender.com)
+- **Interactive API Documentation:** [https://queueless-api-lvf5.onrender.com/docs](https://queueless-api-lvf5.onrender.com/docs)
+- **GitHub Repository:** [https://github.com/WARRIORXR/Hospital-Management](https://github.com/WARRIORXR/Hospital-Management)
+
+---
+
 QueueLess is a modern, full-stack web application designed to streamline patient registration, queue flow, and consultation management across hospital Outpatient Departments (OPDs). It eliminates physical crowding and chaotic waiting rooms through digital token generation, real-time wait-time estimation, priority-aware triage, and role-based portals for patients, doctors, and hospital administrators.
 
 ---
@@ -284,14 +304,23 @@ Interactive docs are available at `http://127.0.0.1:8000/docs`.
 
 ## ☁️ Deployment
 
-QueueLess includes a ready-to-deploy **Render Blueprint** (`render.yaml`) for deploying the FastAPI backend, Next.js frontend, and a managed PostgreSQL database.
+### 1. Cloudflare Pages (Frontend Edge CDN) ⛅
+The Next.js frontend can be deployed globally across Cloudflare's edge network:
+- **Production URL:** [https://queueless.pages.dev](https://queueless.pages.dev)
+- **Deployment Guide:** [DEPLOY_CLOUDFLARE.md](DEPLOY_CLOUDFLARE.md) covers Git-based deployment via Cloudflare Dashboard and direct deployment using Wrangler CLI.
 
-See [DEPLOY_RENDER.md](DEPLOY_RENDER.md) for full step-by-step deployment instructions.
+### 2. Render Blueprint (Full-Stack Backend & PostgreSQL) 🚀
+QueueLess includes an infrastructure-as-code **Render Blueprint** (`render.yaml`) that provisions the FastAPI backend, Next.js frontend web service, and managed PostgreSQL instance:
+- **Backend API:** [https://queueless-api-lvf5.onrender.com](https://queueless-api-lvf5.onrender.com)
+- **Interactive OpenAPI / Swagger Docs:** [https://queueless-api-lvf5.onrender.com/docs](https://queueless-api-lvf5.onrender.com/docs)
+- **Render Web Frontend:** [https://queueless-web.onrender.com](https://queueless-web.onrender.com)
+- **Deployment Guide:** See [DEPLOY_RENDER.md](DEPLOY_RENDER.md).
 
-The importer is not run automatically on deploy. To populate a deployed environment, run
-`python import_demo_data.py` once against its database (set `DATABASE_URL` to the deployed
-connection string); until then the app works with the six seeded OPD departments and an empty
-historical section.
+> [!NOTE]
+> The historical demo dataset is not imported automatically on first deploy. To populate a deployed environment, run
+> `python import_demo_data.py` once against its database (set `DATABASE_URL` to the deployed
+> connection string); until then the app works with the six seeded OPD departments and an empty
+> historical section.
 
 ---
 
