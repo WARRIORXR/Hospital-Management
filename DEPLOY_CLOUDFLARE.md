@@ -29,10 +29,10 @@ Connecting your GitHub repository to Cloudflare Pages enables automatic builds a
 4. **Configure Build Settings:**
    - **Project name:** `queueless` (or your choice, e.g., `hospital-management`).
    - **Production branch:** `main`
-   - **Framework preset:** `Next.js`
+   - **Framework preset:** `Next.js (Static HTML Export)` or `None`
    - **Root directory:** `frontend`
    - **Build command:** `npm run build`
-   - **Build output directory:** `.next`
+   - **Build output directory:** `out`
 5. **Set Environment Variables:**
    Under **Environment variables (advanced)**, add:
    - `NEXT_PUBLIC_API_URL`: `https://queueless-api-lvf5.onrender.com` (or your Render API URL)
@@ -54,12 +54,13 @@ cd frontend
 
 # 2. Authenticate Wrangler with Cloudflare
 npx wrangler login
+# (Or set CLOUDFLARE_API_TOKEN environment variable)
 
-# 3. Build the production Next.js application
+# 3. Build the static production bundle
 npm run build
 
 # 4. Deploy to Cloudflare Pages
-npx wrangler pages deploy .next --project-name queueless
+npx wrangler pages deploy out --project-name queueless
 ```
 
 ---
