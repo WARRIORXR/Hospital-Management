@@ -27,11 +27,16 @@ QueueLess is a modern, full-stack web application designed to streamline patient
   - Hospital-wide operational metrics: total registrations, active consultations, waiting patients, and completed visits.
   - Department workload distribution and bottleneck indicators.
   - Visual analytics for patient flow and department performance.
+  - Historical dataset section: 1,000 imported visits, 52-week demand vs admissions, service performance, roster attendance and the import quality report.
 
 - **⚡ Priority-Aware Queue Algorithm**
   - Intelligent queue ordering based on clinical priority (Emergency > Pregnant/Elderly > Follow-up > Regular).
   - Dynamic estimated wait time calculations based on active consultations and queue length.
   - Tokens restart at #1 for each department every hospital day.
+
+- **🌐 Bilingual Patient Experience (English & हिन्दी)**
+  - Seamless one-click language switcher between English and Hindi across all patient flows (landing page, OTP verification, department selection, and live token receipts).
+  - Culturally accessible terminology tailored for outpatient departments.
 
 - **🔒 Consistency & Safety Rules**
   - Visit state machine (waiting → called → consulting → completed) rejects invalid transitions.
@@ -89,24 +94,30 @@ ephemeral per-process secret, so employees are signed out whenever the API resta
 ```text
 Hospital-Management/
 ├── backend/
-│   ├── models/            # SQLAlchemy database models
+│   ├── models/            # SQLAlchemy database models (queue + demo history)
 │   ├── schemas/           # Pydantic request/response schemas
+│   ├── demo_data/         # Checked-in historical hospital CSVs
+│   ├── tests/             # Pytest API and dataset suites
 │   ├── database.py        # Database connection & session management
+│   ├── import_demo_data.py # Idempotent historical dataset importer
 │   ├── main.py            # FastAPI routes, endpoints & seeding
 │   ├── requirements.txt   # Python dependencies
 │   └── .env.example       # Backend environment variables template
 ├── frontend/
 │   ├── app/
-│   │   ├── admin/         # Admin analytics dashboard
-│   │   ├── doctor/        # Doctor consultation & queue management
-│   │   ├── register/      # Patient OPD registration
-│   │   ├── queue/         # Live queue tracking
-│   │   ├── verify/        # Mobile OTP verification
-│   │   ├── check-token/   # Token lookup by phone number
-│   │   └── page.tsx       # Landing page with OPD statuses
-│   ├── lib/               # Shared utilities & API client
-│   ├── package.json       # Node dependencies
-│   └── .env.local.example # Frontend environment variables template
+│   │   ├── admin/             # Admin analytics & dataset console
+│   │   ├── doctor/            # Doctor consultation & queue management
+│   │   ├── hospital/          # Hospital ops & department schedule manager
+│   │   ├── login/[section]/   # Role-based portal authentication
+│   │   ├── sections/          # Portal navigation directory hub
+│   │   ├── register/          # Patient OPD registration
+│   │   ├── queue/[id]/        # Live queue tracking & token slip
+│   │   ├── verify/            # Mobile OTP verification
+│   │   ├── check-token/       # Token lookup by phone number
+│   │   └── page.tsx           # Bilingual landing page with OPD load
+│   ├── lib/                   # Shared utilities & API client
+│   ├── package.json           # Node dependencies
+│   └── .env.local.example     # Frontend environment variables template
 ├── render.yaml            # Render Blueprint deployment definition
 ├── DEPLOY_RENDER.md       # Render deployment instructions
 ├── PROJECT_SYNOPSIS.md    # Detailed project academic synopsis
@@ -181,7 +192,16 @@ python -m pytest tests -q
 Coverage includes OTP issuance/verification, duplicate registrations, the full visit flow,
 priority dispatch, room-occupancy conflicts, requeue, daily token reset, and analytics shape.
 The demo import has its own suite (`tests/test_demo_data.py`) that checks row counts,
-referential integrity, idempotency, and admin-only access to the dataset summary.
+referential integrity, idempotency, registration into imported departments, and admin-only
+access to the dataset summary.
+
+The frontend is checked with TypeScript and a production build:
+
+```bash
+cd frontend
+npx tsc --noEmit
+npm run build
+```
 
 ---
 
@@ -197,7 +217,7 @@ history and a live queue:
 | `staff.csv` | 110 | Roster: 18 doctors, 69 nurses, 23 nursing assistants |
 | `staff_schedule.csv` | 6,552 | Weekly attendance (126 people × 52 weeks) |
 
-Import it after the backend has started at least once:
+Import it from the backend directory (the importer creates its own tables):
 
 ```bash
 cd backend
@@ -211,7 +231,12 @@ The importer is idempotent: rows are matched by natural key (patient ref, week +
 ref, staff + week), so re-running only refreshes today's demo tokens. A JSON report is printed and
 stored in `demo_import_meta`, and the Admin console renders it under **Historical Hospital Dataset**
 (visit totals, length of stay, satisfaction, weekly demand vs admissions, service performance,
-roster attendance, and the import quality report).
+roster attendance, and the import quality report). The Admin console is available at `/admin`
+after signing in with `ADM-001` / `123456` in development.
+
+<p align="center">
+  <img src="demo-dataset-admin-verified.png" alt="QueueLess Admin Console - Historical Hospital Dataset & Analytics" width="900" />
+</p>
 
 **Service mapping.** `emergency`, `surgery`, `general_medicine` and `icu` become first-class
 departments (Emergency, Surgery, General Medicine Ward, Intensive Care Unit). Each CSV doctor is
@@ -262,6 +287,11 @@ Interactive docs are available at `http://127.0.0.1:8000/docs`.
 QueueLess includes a ready-to-deploy **Render Blueprint** (`render.yaml`) for deploying the FastAPI backend, Next.js frontend, and a managed PostgreSQL database.
 
 See [DEPLOY_RENDER.md](DEPLOY_RENDER.md) for full step-by-step deployment instructions.
+
+The importer is not run automatically on deploy. To populate a deployed environment, run
+`python import_demo_data.py` once against its database (set `DATABASE_URL` to the deployed
+connection string); until then the app works with the six seeded OPD departments and an empty
+historical section.
 
 ---
 
