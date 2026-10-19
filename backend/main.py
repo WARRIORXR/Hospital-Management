@@ -175,11 +175,35 @@ frontend_origins.update({
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(frontend_origins),
-    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)?pages\.dev$",
+    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)?(pages\.dev|vercel\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class ApiPrefixMiddleware:
+    """Allow FastAPI to seamlessly handle requests whether routed with or without an /api prefix.
+
+    When deployed behind Vercel Services rewrites (e.g. /api/(.*) -> queueless-api),
+    incoming requests retain the /api prefix. This middleware normalizes the ASGI path
+    so that existing route definitions, docs, and test suites work identically.
+    """
+
+    def __init__(self, asgi_app):
+        self.asgi_app = asgi_app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            path = scope.get("path", "")
+            if path == "/api":
+                scope["path"] = "/"
+            elif path.startswith("/api/"):
+                scope["path"] = path[4:]
+        await self.asgi_app(scope, receive, send)
+
+
+app.add_middleware(ApiPrefixMiddleware)
 
 
 # --------------------------------------------------

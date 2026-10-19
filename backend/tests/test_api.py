@@ -519,3 +519,24 @@ def test_hospital_portal_manages_departments_and_doctors(client, db):
                 main.Department.id == dept_id
             ).delete(synchronize_session=False)
             db.commit()
+
+
+def test_api_prefix_routing(client):
+    """Ensure routes match with or without the /api prefix for Vercel Services rewrites."""
+    # Health checks
+    direct_health = client.get("/health")
+    assert direct_health.status_code == 200
+    assert direct_health.json()["status"] == "ok"
+
+    prefixed_health = client.get("/api/health")
+    assert prefixed_health.status_code == 200
+    assert prefixed_health.json()["status"] == "ok"
+
+    # Public endpoint /departments
+    direct_depts = client.get("/departments")
+    assert direct_depts.status_code == 200
+
+    prefixed_depts = client.get("/api/departments")
+    assert prefixed_depts.status_code == 200
+    assert len(prefixed_depts.json()) == len(direct_depts.json())
+

@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -44,6 +44,16 @@ def _get_database_url():
         return candidate
 
     db_path = Path(__file__).resolve().parent / "queueless.db"
+    if os.getenv("VERCEL") and not candidate:
+        import shutil
+        tmp_db = Path("/tmp/queueless.db")
+        if not tmp_db.exists() and db_path.exists():
+            try:
+                shutil.copyfile(db_path, tmp_db)
+            except Exception:
+                pass
+        return f"sqlite:///{tmp_db}"
+
     return f"sqlite:///{db_path}"
 
 
