@@ -11,10 +11,23 @@ from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db, SessionLocal
-from models import Patient, Department, Doctor, OPDSchedule
+from models import Patient, Department, Doctor, OPDSchedule, User
 from schemas.patient import PatientCreate
 from schemas.department import DepartmentCreate, DepartmentOut
 from schemas.doctor import DoctorCreate, DoctorOut
+from auth import (
+    check_login_rate_limit,
+    claims_may_access,
+    create_token,
+    hash_pin,
+    optional_access_token,
+    record_login_failure,
+    reset_login_attempts,
+    require_patient_or_role,
+    require_patient_token,
+    require_role,
+    verify_pin,
+)
 
 
 # --------------------------------------------------
@@ -74,6 +87,47 @@ def seed_initial_data():
 
 
 seed_initial_data()
+
+
+PORTAL_SEEDS = (
+    ("admin", "ADMIN", "ADM-001", "System Administrator"),
+    ("hospital", "HOSPITAL", "HOSP-001", "Hospital Manager"),
+    ("staff", "STAFF", "DR-101", "Duty Doctor"),
+)
+
+
+def seed_portal_users():
+    """Create portal logins (admin / hospital / staff) from env or dev defaults.
+
+    Accounts are only created when the employee code does not exist yet, so
+    rotating a PIN means changing the row (or recreating it), not a restart.
+    """
+    db = SessionLocal()
+    try:
+        for role, prefix, default_code, default_name in PORTAL_SEEDS:
+            code = os.getenv(f"{prefix}_CODE", default_code).strip().upper()
+            pin = os.getenv(f"{prefix}_PIN", "123456").strip()
+            name = os.getenv(f"{prefix}_NAME", default_name).strip()
+            if not code or not pin:
+                continue
+            exists = db.query(User).filter(User.employee_code == code).first()
+            if exists:
+                continue
+            db.add(
+                User(
+                    employee_code=code,
+                    pin_hash=hash_pin(pin),
+                    role=role,
+                    name=name,
+                    is_active=True,
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
+
+
+seed_portal_users()
 
 
 # --------------------------------------------------
@@ -290,7 +344,50 @@ def request_otp(payload: OtpRequest):
 @app.post("/auth/verify-otp")
 def verify_otp(payload: OtpVerify):
     OTP_STORE.verify(payload.phone, payload.code)
-    return {"verified": True, "phone": payload.phone}
+    # This token is the patient's session: it unlocks registration, queue
+    # lookups, and self-service cancellation for this mobile number only.
+    patient_token = create_token(
+        kind="patient", subject=payload.phone, phone=payload.phone
+    )
+    return {
+        "verified": True,
+        "phone": payload.phone,
+        "patient_token": patient_token,
+    }
+
+
+class StaffLoginRequest(BaseModel):
+    employee_code: str = Field(..., min_length=4, max_length=40)
+    pin: str = Field(..., pattern=r"^[0-9]{4,8}$")
+
+
+@app.post("/auth/staff-login")
+def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
+    """Employee-code + PIN login for the admin, hospital and staff portals."""
+    code = payload.employee_code.strip().upper()
+    check_login_rate_limit(code)
+
+    user = (
+        db.query(User)
+        .filter(User.employee_code == code, User.is_active == True)
+        .first()
+    )
+
+    if not user or not verify_pin(payload.pin, user.pin_hash):
+        record_login_failure(code)
+        raise HTTPException(status_code=401, detail="Invalid employee code or PIN.")
+
+    reset_login_attempts(code)
+    token = create_token(
+        kind="staff", subject=str(user.id), role=user.role, name=user.name
+    )
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": user.role,
+        "name": user.name,
+        "employee_code": user.employee_code,
+    }
 
 
 # --------------------------------------------------
@@ -321,7 +418,7 @@ def get_doctors(db: Session = Depends(get_db)):
     return result
 
 
-@app.put("/doctors/{doctor_id}/toggle-availability")
+@app.put("/doctors/{doctor_id}/toggle-availability", dependencies=[Depends(require_role("staff", "hospital", "admin"))])
 def toggle_doctor_availability(doctor_id: int, db: Session = Depends(get_db)):
     doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
     if not doctor:
@@ -339,8 +436,14 @@ def toggle_doctor_availability(doctor_id: int, db: Session = Depends(get_db)):
 @app.post("/patients", status_code=201)
 def create_patient(
     patient: PatientCreate,
+    claims: dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
+    if claims.get("phone") != patient.phone:
+        raise HTTPException(
+            status_code=403,
+            detail="This OTP session belongs to a different mobile number.",
+        )
     dept_code = patient.department.value.lower() if hasattr(patient.department, "value") else str(patient.department).lower()
 
     name = patient.name.strip()
@@ -523,7 +626,7 @@ def get_opd_status(db: Session = Depends(get_db)):
 # GET ALL PATIENTS
 # --------------------------------------------------
 
-@app.get("/patients")
+@app.get("/patients", dependencies=[Depends(require_role("staff", "admin"))])
 def get_patients(
     department: str | None = None,
     status: str | None = None,
@@ -569,6 +672,7 @@ def get_patients(
 @app.get("/patients/by-phone/{phone}")
 def get_patient_by_phone(
     phone: str,
+    claims: dict | None = Depends(optional_access_token),
     db: Session = Depends(get_db)
 ):
 
@@ -597,7 +701,12 @@ def get_patient_by_phone(
             detail="No patient found with this mobile number"
         )
 
-    return patient
+    # Full records require an OTP-verified session for this number (or staff
+    # credentials); anonymous callers only learn that a record exists.
+    if claims_may_access(claims, patient):
+        return patient
+
+    return {"id": patient.id, "requires_verification": True, "phone": phone}
 
 
 # --------------------------------------------------
@@ -607,6 +716,7 @@ def get_patient_by_phone(
 @app.get("/patients/{patient_id}")
 def get_patient(
     patient_id: int,
+    claims: dict = Depends(require_patient_or_role("staff", "admin")),
     db: Session = Depends(get_db)
 ):
 
@@ -622,6 +732,9 @@ def get_patient(
             detail="Patient not found"
         )
 
+    if not claims_may_access(claims, patient):
+        raise HTTPException(status_code=403, detail="This record belongs to a different patient.")
+
     return patient
 
 
@@ -629,7 +742,7 @@ def get_patient(
 # CALL SPECIFIC PATIENT
 # --------------------------------------------------
 
-@app.put("/patients/{patient_id}/call")
+@app.put("/patients/{patient_id}/call", dependencies=[Depends(require_role("staff", "admin"))])
 def call_patient(
     patient_id: int,
     db: Session = Depends(get_db)
@@ -667,7 +780,7 @@ def call_patient(
 # START CONSULTATION
 # --------------------------------------------------
 
-@app.put("/patients/{patient_id}/consult")
+@app.put("/patients/{patient_id}/consult", dependencies=[Depends(require_role("staff", "admin"))])
 def consult_patient(
     patient_id: int,
     db: Session = Depends(get_db)
@@ -685,7 +798,7 @@ def consult_patient(
 # COMPLETE CONSULTATION
 # --------------------------------------------------
 
-@app.put("/patients/{patient_id}/complete")
+@app.put("/patients/{patient_id}/complete", dependencies=[Depends(require_role("staff", "admin"))])
 def complete_patient(
     patient_id: int,
     db: Session = Depends(get_db)
@@ -703,7 +816,7 @@ def complete_patient(
 # SKIP PATIENT
 # --------------------------------------------------
 
-@app.put("/patients/{patient_id}/skip")
+@app.put("/patients/{patient_id}/skip", dependencies=[Depends(require_role("staff", "admin"))])
 def skip_patient(
     patient_id: int,
     db: Session = Depends(get_db)
@@ -724,10 +837,13 @@ def skip_patient(
 @app.put("/patients/{patient_id}/cancel")
 def cancel_patient(
     patient_id: int,
+    claims: dict = Depends(require_patient_or_role("staff", "admin")),
     db: Session = Depends(get_db)
 ):
 
     patient = get_patient_or_404(db, patient_id)
+    if not claims_may_access(claims, patient):
+        raise HTTPException(status_code=403, detail="This record belongs to a different patient.")
     require_status(patient, ("waiting", "called"), "cancel")
 
     patient.status = "cancelled"
@@ -739,7 +855,7 @@ def cancel_patient(
 # REQUEUE A SKIPPED / CANCELLED VISIT
 # --------------------------------------------------
 
-@app.put("/patients/{patient_id}/requeue")
+@app.put("/patients/{patient_id}/requeue", dependencies=[Depends(require_role("staff", "admin"))])
 def requeue_patient(
     patient_id: int,
     db: Session = Depends(get_db)
@@ -776,7 +892,7 @@ def requeue_patient(
 # CALL NEXT PATIENT (PRIORITY-AWARE)
 # --------------------------------------------------
 
-@app.put("/patients/call-next")
+@app.put("/patients/call-next", dependencies=[Depends(require_role("staff", "admin"))])
 def call_next_patient(
     department: str,
     db: Session = Depends(get_db)
@@ -843,6 +959,7 @@ def call_next_patient(
 @app.get("/patients/{patient_id}/queue-status")
 def get_queue_status(
     patient_id: int,
+    claims: dict = Depends(require_patient_or_role("staff", "admin")),
     db: Session = Depends(get_db)
 ):
 
@@ -857,6 +974,9 @@ def get_queue_status(
             status_code=404,
             detail="Patient not found"
         )
+
+    if not claims_may_access(claims, patient):
+        raise HTTPException(status_code=403, detail="This record belongs to a different patient.")
 
     # Find patient currently being served
     current_patient = (
@@ -963,7 +1083,7 @@ def get_queue_status(
 # HOSPITAL ADMIN & ANALYTICS
 # --------------------------------------------------
 
-@app.get("/admin/overview")
+@app.get("/admin/overview", dependencies=[Depends(require_role("admin"))])
 def get_admin_overview(db: Session = Depends(get_db)):
     """Operational counters for the current hospital day."""
     start_of_day = today_start_utc()
@@ -1027,7 +1147,7 @@ def get_admin_overview(db: Session = Depends(get_db)):
     }
 
 
-@app.get("/admin/department-load")
+@app.get("/admin/department-load", dependencies=[Depends(require_role("admin"))])
 def get_department_load(db: Session = Depends(get_db)):
     departments = db.query(Department).filter(Department.is_active == True).all()
     start_of_day = today_start_utc()
@@ -1134,7 +1254,7 @@ def get_department_load(db: Session = Depends(get_db)):
     return results
 
 
-@app.get("/admin/analytics")
+@app.get("/admin/analytics", dependencies=[Depends(require_role("admin"))])
 def get_admin_analytics(db: Session = Depends(get_db)):
     departments = db.query(Department).filter(Department.is_active == True).all()
     start_of_day = today_start_utc()
@@ -1236,3 +1356,209 @@ def get_admin_analytics(db: Session = Depends(get_db)):
         "hourly_patient_flow": hourly_flow,
         "doctor_utilization": doctor_utilization
     }
+
+
+# --------------------------------------------------
+# HOSPITAL MANAGEMENT (hospital-manager portal)
+# --------------------------------------------------
+
+class DepartmentUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
+class ScheduleUpdate(BaseModel):
+    timing: str = Field(..., min_length=3, max_length=60)
+
+
+class DoctorUpdate(BaseModel):
+    name: str | None = None
+    specialization: str | None = None
+    room_number: str | None = None
+    department_id: int | None = None
+    is_available: bool | None = None
+
+
+@app.get("/hospital/overview", dependencies=[Depends(require_role("hospital", "admin"))])
+def get_hospital_overview(db: Session = Depends(get_db)):
+    """Everything the hospital manager edits: departments, hours, doctors."""
+    departments = db.query(Department).order_by(Department.id.asc()).all()
+
+    timing_by_dept: dict[int, str] = {}
+    for schedule in (
+        db.query(OPDSchedule).filter(OPDSchedule.is_active == True).all()
+    ):
+        timing_by_dept.setdefault(schedule.department_id, schedule.timing)
+
+    doctors_by_dept: dict[int, list] = {}
+    for doc in db.query(Doctor).order_by(Doctor.id.asc()).all():
+        doctors_by_dept.setdefault(doc.department_id, []).append(
+            {
+                "id": doc.id,
+                "name": doc.name,
+                "specialization": doc.specialization,
+                "room_number": doc.room_number,
+                "is_available": doc.is_available,
+            }
+        )
+
+    return [
+        {
+            "id": dept.id,
+            "code": dept.code,
+            "name": dept.name,
+            "description": dept.description,
+            "is_active": dept.is_active,
+            "timing": timing_by_dept.get(dept.id),
+            "doctors": doctors_by_dept.get(dept.id, []),
+        }
+        for dept in departments
+    ]
+
+
+@app.post(
+    "/hospital/departments",
+    status_code=201,
+    dependencies=[Depends(require_role("hospital", "admin"))],
+)
+def create_hospital_department(payload: DepartmentCreate, db: Session = Depends(get_db)):
+    code = payload.code.strip().lower()
+    if db.query(Department).filter(Department.code == code).first():
+        raise HTTPException(status_code=409, detail=f"Department code '{code}' already exists.")
+
+    dept = Department(
+        code=code,
+        name=payload.name.strip(),
+        description=payload.description,
+        is_active=True,
+    )
+    db.add(dept)
+    db.commit()
+    db.refresh(dept)
+    return dept
+
+
+@app.put(
+    "/hospital/departments/{department_id}",
+    dependencies=[Depends(require_role("hospital", "admin"))],
+)
+def update_hospital_department(
+    department_id: int,
+    payload: DepartmentUpdate,
+    db: Session = Depends(get_db),
+):
+    dept = db.query(Department).filter(Department.id == department_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    if payload.name is not None:
+        dept.name = payload.name.strip()
+    if payload.description is not None:
+        dept.description = payload.description.strip() or None
+    if payload.is_active is not None:
+        dept.is_active = payload.is_active
+
+    db.commit()
+    db.refresh(dept)
+    return dept
+
+
+@app.put(
+    "/hospital/departments/{department_id}/schedule",
+    dependencies=[Depends(require_role("hospital", "admin"))],
+)
+def update_hospital_schedule(
+    department_id: int,
+    payload: ScheduleUpdate,
+    db: Session = Depends(get_db),
+):
+    dept = db.query(Department).filter(Department.id == department_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    schedule = (
+        db.query(OPDSchedule)
+        .filter(OPDSchedule.department_id == department_id, OPDSchedule.is_active == True)
+        .first()
+    )
+
+    if schedule:
+        schedule.timing = payload.timing.strip()
+    else:
+        doctor = (
+            db.query(Doctor)
+            .filter(Doctor.department_id == department_id)
+            .order_by(Doctor.id.asc())
+            .first()
+        )
+        if not doctor:
+            raise HTTPException(
+                status_code=409,
+                detail="Add a doctor to this department before setting OPD hours.",
+            )
+        schedule = OPDSchedule(
+            department_id=department_id,
+            doctor_id=doctor.id,
+            timing=payload.timing.strip(),
+            is_active=True,
+        )
+        db.add(schedule)
+
+    db.commit()
+    return {"department_id": department_id, "timing": schedule.timing}
+
+
+@app.post(
+    "/hospital/doctors",
+    status_code=201,
+    dependencies=[Depends(require_role("hospital", "admin"))],
+)
+def create_hospital_doctor(payload: DoctorCreate, db: Session = Depends(get_db)):
+    dept = db.query(Department).filter(Department.id == payload.department_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    doctor = Doctor(
+        name=payload.name.strip(),
+        specialization=(payload.specialization or "").strip() or None,
+        room_number=payload.room_number.strip(),
+        is_available=True,
+        department_id=dept.id,
+    )
+    db.add(doctor)
+    db.commit()
+    db.refresh(doctor)
+    return doctor
+
+
+@app.put(
+    "/hospital/doctors/{doctor_id}",
+    dependencies=[Depends(require_role("hospital", "admin"))],
+)
+def update_hospital_doctor(
+    doctor_id: int,
+    payload: DoctorUpdate,
+    db: Session = Depends(get_db),
+):
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+
+    if payload.department_id is not None:
+        dept = db.query(Department).filter(Department.id == payload.department_id).first()
+        if not dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+        doctor.department_id = dept.id
+    if payload.name is not None:
+        doctor.name = payload.name.strip()
+    if payload.specialization is not None:
+        doctor.specialization = payload.specialization.strip() or None
+    if payload.room_number is not None:
+        doctor.room_number = payload.room_number.strip()
+    if payload.is_available is not None:
+        doctor.is_available = payload.is_available
+
+    db.commit()
+    db.refresh(doctor)
+    return doctor

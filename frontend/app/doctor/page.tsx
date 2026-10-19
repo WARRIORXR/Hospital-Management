@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiUrl } from "@/lib/api";
 import { formatClock } from "@/lib/format";
+import { clearPortalSession, portalFetch, useHydrated, usePortalSession } from "@/lib/auth";
 
 type Patient = {
   id: number;
@@ -46,6 +48,9 @@ type DepartmentData = {
 };
 
 export default function DoctorPortalPage() {
+  const router = useRouter();
+  const session = usePortalSession();
+  const hydrated = useHydrated();
   const [selectedDept, setSelectedDept] = useState("cardiology");
   const [departments, setDepartments] = useState<DepartmentData[]>([]);
   const [doctors, setDoctors] = useState<DoctorData[]>([]);
@@ -100,10 +105,9 @@ export default function DoctorPortalPage() {
   const handleToggleAvailability = async () => {
     if (!assignedDoctor) return;
     try {
-      const res = await fetch(
-        apiUrl(`/doctors/${assignedDoctor.id}/toggle-availability`),
-        { method: "PUT" }
-      );
+      const res = await portalFetch(`/doctors/${assignedDoctor.id}/toggle-availability`, {
+        method: "PUT",
+      });
       if (res.ok) {
         const updated = await res.json();
         setDoctors((prev) =>
@@ -133,10 +137,14 @@ export default function DoctorPortalPage() {
     abortRef.current = controller;
 
     try {
-      const response = await fetch(
-        apiUrl(`/patients?department=${selectedDept}&today=true`),
-        { signal: controller.signal }
-      );
+      const response = await portalFetch(`/patients?department=${selectedDept}&today=true`, {
+        signal: controller.signal,
+      });
+      if (response.status === 401 || response.status === 403) {
+        clearPortalSession();
+        router.replace("/login/staff");
+        return;
+      }
       if (!response.ok) {
         throw new Error(`Error ${response.status}`);
       }
@@ -150,10 +158,16 @@ export default function DoctorPortalPage() {
       inFlight.current = false;
       setLoading(false);
     }
-  }, [selectedDept]);
+  }, [selectedDept, router]);
 
-  // Poll only while the tab is visible; cancel in-flight work on unmount.
+  // Staff console is gated: employees sign in with their code + PIN.
   useEffect(() => {
+    if (!hydrated) return;
+    if (!session || (session.role !== "staff" && session.role !== "admin")) {
+      router.replace("/login/staff");
+      return;
+    }
+
     setLoading(true);
     fetchDepartmentPatients();
 
@@ -189,7 +203,7 @@ export default function DoctorPortalPage() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       abortRef.current?.abort();
     };
-  }, [fetchDepartmentPatients]);
+  }, [fetchDepartmentPatients, hydrated, session, router]);
 
   // Derive Patient Subsets
   const activePatient = patients.find(
@@ -227,10 +241,9 @@ export default function DoctorPortalPage() {
     setActionLoading(true);
     setMessage(null);
     try {
-      const res = await fetch(
-        apiUrl(`/patients/call-next?department=${selectedDept}`),
-        { method: "PUT" }
-      );
+      const res = await portalFetch(`/patients/call-next?department=${selectedDept}`, {
+        method: "PUT",
+      });
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -266,10 +279,9 @@ export default function DoctorPortalPage() {
     setActionLoading(true);
     setMessage(null);
     try {
-      const res = await fetch(
-        apiUrl(`/patients/${patientId}/${action}`),
-        { method: "PUT" }
-      );
+      const res = await portalFetch(`/patients/${patientId}/${action}`, {
+        method: "PUT",
+      });
       const updated = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -390,6 +402,16 @@ export default function DoctorPortalPage() {
             >
               <span className={`h-2 w-2 rounded-full ${isDoctorAvailable ? "bg-emerald-500" : "bg-amber-500"}`} />
               {isDoctorAvailable ? "Doctor Available" : "Doctor On Break"}
+            </button>
+
+            <button
+              onClick={() => {
+                clearPortalSession();
+                router.replace("/login/staff");
+              }}
+              className="text-xs font-semibold text-slate-500 hover:text-rose-600 transition"
+            >
+              Sign out
             </button>
 
             <Link

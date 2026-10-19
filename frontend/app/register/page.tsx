@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiUrl } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { clearPatientSession, patientFetch } from "@/lib/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -98,30 +98,34 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(
-        apiUrl("/patients"),
-        {
-          method: "POST",
+      const response = await patientFetch("/patients", {
+        method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-          body: JSON.stringify({
-            name: name.trim(),
-            age: Number(age),
-            phone: verifiedPhone,
-            department: department,
-            priority: priority,
-            symptoms: symptoms.trim() || null,
-          }),
-        }
-      );
+        body: JSON.stringify({
+          name: name.trim(),
+          age: Number(age),
+          phone: verifiedPhone,
+          department: department,
+          priority: priority,
+          symptoms: symptoms.trim() || null,
+        }),
+      });
 
       const data =
         await response.json().catch(() => null);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // The OTP session expired — verify again, then come back.
+          clearPatientSession();
+          router.replace(`/verify?phone=${verifiedPhone}`);
+          return;
+        }
+
         const detail = data?.detail;
 
         // 409: this mobile number already holds a live token.

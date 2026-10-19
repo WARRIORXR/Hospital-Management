@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { API_BASE_URL, apiUrl } from "@/lib/api";
+import { API_BASE_URL } from "@/lib/api";
 import { formatClock } from "@/lib/format";
+import { clearPortalSession, portalFetch, useHydrated, usePortalSession } from "@/lib/auth";
 import {
   AreaChart,
   Area,
@@ -72,6 +74,9 @@ type AnalyticsData = {
 const PRIORITY_COLORS = ["#ef4444", "#f59e0b", "#ec4899", "#3b82f6", "#64748b"];
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
+  const session = usePortalSession();
+  const hydrated = useHydrated();
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [deptLoads, setDeptLoads] = useState<DepartmentLoad[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -95,10 +100,16 @@ export default function AdminDashboardPage() {
 
     try {
       const [ovRes, dlRes, anRes] = await Promise.all([
-        fetch(apiUrl("/admin/overview"), { signal: controller.signal }),
-        fetch(apiUrl("/admin/department-load"), { signal: controller.signal }),
-        fetch(apiUrl("/admin/analytics"), { signal: controller.signal }),
+        portalFetch("/admin/overview", { signal: controller.signal }),
+        portalFetch("/admin/department-load", { signal: controller.signal }),
+        portalFetch("/admin/analytics", { signal: controller.signal }),
       ]);
+
+      if ([ovRes, dlRes, anRes].some((r) => r.status === 401 || r.status === 403)) {
+        clearPortalSession();
+        router.replace("/login/admin");
+        return;
+      }
 
       if (!ovRes.ok || !dlRes.ok || !anRes.ok) {
         throw new Error("Failed to load admin analytics");
@@ -122,10 +133,16 @@ export default function AdminDashboardPage() {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [router]);
 
-  // Poll only while the tab is visible; cancel in-flight work on unmount.
+  // Admin console is gated: employees sign in with their code + PIN.
   useEffect(() => {
+    if (!hydrated) return;
+    if (!session || session.role !== "admin") {
+      router.replace("/login/admin");
+      return;
+    }
+
     fetchData();
 
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -160,7 +177,7 @@ export default function AdminDashboardPage() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       abortRef.current?.abort();
     };
-  }, [fetchData]);
+  }, [fetchData, hydrated, session, router]);
 
   const activeBottlenecks = deptLoads.filter((d) => d.bottleneck_alert);
 
@@ -217,6 +234,16 @@ export default function AdminDashboardPage() {
             >
               Doctor Console →
             </Link>
+
+            <button
+              onClick={() => {
+                clearPortalSession();
+                router.replace("/login/admin");
+              }}
+              className="text-xs font-semibold text-slate-500 hover:text-rose-600 transition"
+            >
+              Sign out
+            </button>
 
             <Link
               href="/"

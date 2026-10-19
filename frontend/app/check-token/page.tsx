@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { apiUrl } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { getPatientSession, patientFetch } from "@/lib/auth";
 
 export default function CheckTokenPage() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function CheckTokenPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(apiUrl(`/patients/by-phone/${cleanPhone}`));
+      const response = await patientFetch(`/patients/by-phone/${cleanPhone}`);
 
       if (response.status === 404) {
         setNotFound(true);
@@ -44,11 +44,20 @@ export default function CheckTokenPage() {
 
       const patient = await response.json();
 
+      const active = getPatientSession();
+      const verifiedForThisPhone = Boolean(active && active.phone === cleanPhone);
+
       // Remember the identity for the private dashboard.
       sessionStorage.setItem("phoneVerified", "true");
       sessionStorage.setItem("verifiedPhone", cleanPhone);
 
-      router.push(`/queue/${patient.id}`);
+      if (verifiedForThisPhone || !patient.requires_verification) {
+        router.push(`/queue/${patient.id}`);
+        return;
+      }
+
+      // A record exists, but this browser has not proven the number yet.
+      router.push(`/verify?phone=${cleanPhone}&next=/queue/${patient.id}`);
     } catch (err) {
       console.error("Check token error:", err);
       setError(t("verify.errorUnreachable"));

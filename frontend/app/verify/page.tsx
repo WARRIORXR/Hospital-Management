@@ -1,18 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { patientLandingRoute, setPatientSession } from "@/lib/auth";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function VerifyPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#f6f9fc] px-6 py-10" />}>
+      <VerifyFlow />
+    </Suspense>
+  );
+}
+
+function VerifyFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
 
-  const [phone, setPhone] = useState("");
+  // ?phone=... (from Check Token) pre-fills the number to verify.
+  const [phone, setPhone] = useState(() => {
+    const preset = searchParams.get("phone") ?? "";
+    return /^[0-9]{10}$/.test(preset) ? preset : "";
+  });
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [devCode, setDevCode] = useState("");
@@ -97,8 +111,16 @@ export default function VerifyPage() {
 
       sessionStorage.setItem("verifiedPhone", phone);
       sessionStorage.setItem("phoneVerified", "true");
+      setPatientSession(phone, data.patient_token);
 
-      router.push("/register");
+      // `?next=` (from Check Token) opens that token; otherwise an existing
+      // visit reopens and a first-time patient continues to registration.
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (next && next.startsWith("/queue/")) {
+        router.push(next);
+      } else {
+        router.push(await patientLandingRoute(phone));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("verify.errorVerify"));
     } finally {

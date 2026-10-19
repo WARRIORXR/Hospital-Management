@@ -40,6 +40,35 @@ QueueLess is a modern, full-stack web application designed to streamline patient
 
 ---
 
+## 🔐 Portals & Access
+
+QueueLess ships four separate sections. `/sections` is the hub; each section has its own sign-in and only exposes what its role allows.
+
+| Section | Sign in at | Credentials | Can do |
+| --- | --- | --- | --- |
+| **Patient** | `/login/patient` | 10-digit mobile + OTP | Register a token, track position, leave the queue, read only their own visits |
+| **Staff** | `/login/staff` | Employee code + PIN | Call, consult, complete, skip or requeue patients; toggle doctor availability |
+| **Hospital** | `/login/hospital` | Employee code + PIN | Manage departments, doctors, OPD hours and availability |
+| **Admin** | `/login/admin` | Employee code + PIN | Hospital-wide analytics, bottleneck oversight, plus hospital and staff consoles |
+
+Employee logins are created on first backend start and can be overridden with environment variables:
+
+| Section | Variables | Development default |
+| --- | --- | --- |
+| Admin | `ADMIN_CODE` / `ADMIN_PIN` | `ADM-001` / `123456` |
+| Hospital | `HOSPITAL_CODE` / `HOSPITAL_PIN` | `HOSP-001` / `123456` |
+| Staff | `STAFF_CODE` / `STAFF_PIN` | `DR-101` / `123456` |
+
+Each section verifies the role twice: the login response must match the section the employee
+opened (a Hospital code tried on `/login/admin` is rejected and linked to its own section), and
+the API enforces the same matrix through `require_role`, `require_patient_token` and
+`claims_may_access` — so opening a console URL directly still cannot bypass it.
+
+Sessions are signed JWTs. Set `AUTH_SECRET` in production; without it the backend generates an
+ephemeral per-process secret, so employees are signed out whenever the API restarts.
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -160,7 +189,9 @@ priority dispatch, room-occupancy conflicts, requeue, daily token reset, and ana
 | --- | --- | --- |
 | `GET` | `/health` | Readiness probe (API + database) |
 | `POST` | `/auth/request-otp` | Issue a 6-digit OTP for a mobile number |
-| `POST` | `/auth/verify-otp` | Verify an OTP (5 min TTL, 5 attempts) |
+| `POST` | `/auth/verify-otp` | Verify an OTP (5 min TTL, 5 attempts) and issue a patient session token |
+| `POST` | `/auth/staff-login` | Employee code + PIN sign-in for the admin, hospital and staff sections |
+| `GET` | `/hospital/overview` | Departments, doctors and OPD hours for the hospital section |
 | `GET` | `/opds` | Public OPD load, wait times, and serving token |
 | `POST` | `/patients` | Register a visit and issue a daily token |
 | `GET` | `/patients?department=&status=&today=` | Filter queue records |
@@ -169,7 +200,10 @@ priority dispatch, room-occupancy conflicts, requeue, daily token reset, and ana
 | `PUT` | `/patients/{id}/consult` \| `/complete` \| `/skip` \| `/cancel` | Visit state transitions |
 | `PUT` | `/patients/{id}/requeue` | Return a skipped/cancelled visit to the queue |
 | `GET` | `/patients/{id}/queue-status` | Live position and estimated wait |
-| `GET` | `/admin/overview` \| `/admin/department-load` \| `/admin/analytics` | Operations dashboards |
+| `GET` | `/admin/overview` \| `/admin/department-load` \| `/admin/analytics` | Operations dashboards (admin only) |
+
+Protected routes return `401` without a session, `403` when the role is wrong, and patient
+tokens are scoped to their own mobile number (`403` on another patient's record).
 
 Interactive docs are available at `http://127.0.0.1:8000/docs`.
 

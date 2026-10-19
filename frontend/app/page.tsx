@@ -267,7 +267,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-lg font-extrabold tracking-tight">QueueLess</p>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              <p className="hidden text-[10px] font-semibold uppercase tracking-widest text-slate-400 sm:block">
                 {t("brand.tagline")}
               </p>
             </div>
@@ -300,21 +300,22 @@ export default function Home() {
               {t("nav.checkToken")}
             </Link>
             <Link
-              href="/doctor"
-              className="text-xs font-bold uppercase tracking-wider rounded-lg bg-slate-100 px-2.5 py-1.5 text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition"
+              href="/sections"
+              className="text-xs font-bold uppercase tracking-wider rounded-lg bg-slate-900 px-3 py-1.5 text-white hover:bg-slate-800 transition shadow-sm"
             >
-              👨‍⚕️ {t("nav.staff")}
-            </Link>
-            <Link
-              href="/admin"
-              className="text-xs font-bold uppercase tracking-wider rounded-lg bg-slate-900 px-2.5 py-1.5 text-white hover:bg-slate-800 transition shadow-sm"
-            >
-              📊 {t("nav.admin")}
+              🔐 {t("nav.signIn")}
             </Link>
           </nav>
 
           {/* Actions */}
           <div className="flex items-center gap-3">
+            <Link
+              href="/sections"
+              className="whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-slate-800 md:hidden"
+            >
+              🔐 {t("nav.signIn")}
+            </Link>
+
             <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 sm:flex border border-emerald-100">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs font-bold text-emerald-700">
@@ -326,7 +327,7 @@ export default function Home() {
 
             <Link
               href="/verify"
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+              className="hidden whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 sm:inline-block"
             >
               {t("home.getToken")}
             </Link>
@@ -713,8 +714,11 @@ export default function Home() {
             <Link href="/verify" className="hover:text-blue-600 transition">
               {t("footer.get")}
             </Link>
-            <Link href="/doctor" className="font-bold text-blue-600 hover:text-blue-700 transition">
+            <Link href="/login/staff" className="font-bold text-blue-600 hover:text-blue-700 transition">
               {t("footer.doctor")}
+            </Link>
+            <Link href="/sections" className="font-bold text-slate-900 hover:text-blue-700 transition">
+              {t("footer.sections")}
             </Link>
           </div>
         </div>

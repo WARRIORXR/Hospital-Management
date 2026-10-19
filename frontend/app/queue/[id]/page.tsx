@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { apiUrl } from "@/lib/api";
 import { formatClock, formatDateTime } from "@/lib/format";
+import { patientFetch } from "@/lib/auth";
 import {
   DEPARTMENT_KEYS,
   PRIORITY_KEYS,
@@ -66,11 +66,17 @@ export default function QueuePage() {
       setError("");
 
       const [patientResponse, queueResponse] = await Promise.all([
-        fetch(apiUrl(`/patients/${patientId}`), { signal: controller.signal }),
-        fetch(apiUrl(`/patients/${patientId}/queue-status`), {
+        patientFetch(`/patients/${patientId}`, { signal: controller.signal }),
+        patientFetch(`/patients/${patientId}/queue-status`, {
           signal: controller.signal,
         }),
       ]);
+
+      if (patientResponse.status === 401 || patientResponse.status === 403) {
+        // Not signed in for this number — OTP verification unlocks the dashboard.
+        router.replace(`/verify?next=/queue/${patientId}`);
+        return;
+      }
 
       if (!patientResponse.ok) {
         throw new Error("Patient not found");
@@ -96,7 +102,7 @@ export default function QueuePage() {
       inFlight.current = false;
       setLoading(false);
     }
-  }, [patientId, t]);
+  }, [patientId, t, router]);
 
   // Initial load + polling that pauses while the tab is hidden.
   useEffect(() => {
@@ -143,7 +149,7 @@ export default function QueuePage() {
     setActionError("");
 
     try {
-      const response = await fetch(apiUrl(`/patients/${patient.id}/cancel`), {
+      const response = await patientFetch(`/patients/${patient.id}/cancel`, {
         method: "PUT",
       });
       const data = await response.json().catch(() => null);
