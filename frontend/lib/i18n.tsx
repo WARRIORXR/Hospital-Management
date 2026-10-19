@@ -205,6 +205,10 @@ const en = {
   "dept.gastro": "Gastroenterology",
   "dept.orthopedics": "Orthopedics",
   "dept.neurology": "Neurology",
+  "dept.emergency": "Emergency",
+  "dept.surgery": "Surgery",
+  "dept.general_medicine": "General Medicine Ward",
+  "dept.icu": "Intensive Care Unit",
 
   "priority.regular": "Regular",
   "priority.emergency": "Emergency",
@@ -559,6 +563,10 @@ const hi: Record<TranslationKey, string> = {
   "dept.gastro": "जठरांत्र रोग",
   "dept.orthopedics": "अस्थि रोग",
   "dept.neurology": "तंत्रिका रोग",
+  "dept.emergency": "आपातकाल",
+  "dept.surgery": "शल्य चिकित्सा",
+  "dept.general_medicine": "सामान्य चिकित्सा वार्ड",
+  "dept.icu": "गहन चिकित्सा इकाई",
 
   "priority.regular": "सामान्य",
   "priority.emergency": "आपातकाल",
@@ -740,6 +748,10 @@ export const DEPARTMENT_KEYS: Record<string, TranslationKey> = {
   gastro: "dept.gastro",
   orthopedics: "dept.orthopedics",
   neurology: "dept.neurology",
+  emergency: "dept.emergency",
+  surgery: "dept.surgery",
+  general_medicine: "dept.general_medicine",
+  icu: "dept.icu",
 };
 
 export const VISIT_STATUS_KEYS: Record<string, TranslationKey> = {

@@ -1,6 +1,8 @@
+import json
 import os
 import re
 import secrets
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 
@@ -11,7 +13,18 @@ from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db, SessionLocal
-from models import Patient, Department, Doctor, OPDSchedule, User
+from models import (
+    Department,
+    DemoImportMeta,
+    DemoVisit,
+    Doctor,
+    OPDSchedule,
+    Patient,
+    ServiceWeekly,
+    StaffMember,
+    StaffShift,
+    User,
+)
 from schemas.patient import PatientCreate
 from schemas.department import DepartmentCreate, DepartmentOut
 from schemas.doctor import DoctorCreate, DoctorOut
@@ -445,6 +458,17 @@ def create_patient(
             detail="This OTP session belongs to a different mobile number.",
         )
     dept_code = patient.department.value.lower() if hasattr(patient.department, "value") else str(patient.department).lower()
+
+    department = (
+        db.query(Department)
+        .filter(Department.code == dept_code, Department.is_active == True)
+        .first()
+    )
+    if department is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Department '{dept_code}' is not available for registration.",
+        )
 
     name = patient.name.strip()
     if not name:
@@ -1355,6 +1379,152 @@ def get_admin_analytics(db: Session = Depends(get_db)):
         "priority_distribution": priority_counts,
         "hourly_patient_flow": hourly_flow,
         "doctor_utilization": doctor_utilization
+    }
+
+
+# --------------------------------------------------
+# HISTORICAL DEMO DATASET (admin analytics)
+# --------------------------------------------------
+
+@app.get("/demo/overview", dependencies=[Depends(require_role("admin"))])
+def get_demo_overview(db: Session = Depends(get_db)):
+    """Aggregated view of the imported historical hospital dataset."""
+    visits = db.query(DemoVisit).all()
+    weekly_rows = db.query(ServiceWeekly).order_by(ServiceWeekly.week.asc()).all()
+    staff = db.query(StaffMember).all()
+    shifts = db.query(StaffShift).all()
+
+    meta = db.query(DemoImportMeta).filter(DemoImportMeta.key == "report").first()
+    quality = None
+    if meta is not None:
+        try:
+            quality = json.loads(meta.value)
+        except (TypeError, ValueError):
+            quality = None
+
+    if not visits and not weekly_rows and not staff:
+        return {
+            "available": False,
+            "dataset": None,
+            "services": [],
+            "weekly": [],
+            "staff_attendance": [],
+            "data_quality": quality,
+        }
+
+    # ---- per-service visit totals -------------------------------------
+    service_stats: dict[str, dict] = defaultdict(
+        lambda: {"visits": 0, "los_days": 0, "satisfaction_sum": 0, "satisfaction_count": 0}
+    )
+    for visit in visits:
+        stats = service_stats[visit.service]
+        stats["visits"] += 1
+        stats["los_days"] += (visit.departure_date - visit.arrival_date).days
+        if visit.satisfaction is not None:
+            stats["satisfaction_sum"] += visit.satisfaction
+            stats["satisfaction_count"] += 1
+
+    # ---- attendance per staff member ---------------------------------
+    attendance: dict[int, list[int]] = defaultdict(lambda: [0, 0])
+    for shift in shifts:
+        bucket = attendance[shift.staff_id]
+        bucket[1] += 1
+        if shift.present:
+            bucket[0] += 1
+
+    staff_by_service: dict[str, int] = defaultdict(int)
+    attendance_by_service: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    staff_payload = []
+
+    for member in staff:
+        staff_by_service[member.service] += 1
+        present, total = attendance.get(member.id, [0, 0])
+        attendance_by_service[member.service][0] += present
+        attendance_by_service[member.service][1] += total
+        staff_payload.append(
+            {
+                "name": member.name,
+                "role": member.role,
+                "service": member.service,
+                "present": present,
+                "total": total,
+                "attendance_pct": round(present * 100 / total, 1) if total else 0.0,
+            }
+        )
+
+    staff_payload.sort(key=lambda row: (-row["attendance_pct"], row["name"]))
+
+    # ---- weekly trend (summed over the four services) ------------------
+    weekly_trend: dict[int, dict] = defaultdict(
+        lambda: {"requested": 0, "admitted": 0, "refused": 0, "satisfaction_sum": 0, "morale_sum": 0, "rows": 0}
+    )
+    for row in weekly_rows:
+        bucket = weekly_trend[row.week]
+        bucket["requested"] += row.patients_request
+        bucket["admitted"] += row.patients_admitted
+        bucket["refused"] += row.patients_refused
+        bucket["satisfaction_sum"] += row.patient_satisfaction or 0
+        bucket["morale_sum"] += row.staff_morale or 0
+        bucket["rows"] += 1
+
+    weekly_payload = [
+        {
+            "week": week,
+            "requested": bucket["requested"],
+            "admitted": bucket["admitted"],
+            "refused": bucket["refused"],
+            "satisfaction": round(bucket["satisfaction_sum"] / bucket["rows"], 1)
+            if bucket["rows"]
+            else 0,
+            "morale": round(bucket["morale_sum"] / bucket["rows"], 1)
+            if bucket["rows"]
+            else 0,
+        }
+        for week, bucket in sorted(weekly_trend.items())
+    ]
+
+    # ---- service payload ----------------------------------------------
+    services_payload = []
+    for code, stats in sorted(service_stats.items()):
+        present, total = attendance_by_service.get(code, [0, 0])
+        services_payload.append(
+            {
+                "service": code,
+                "visits": stats["visits"],
+                "avg_length_of_stay": round(stats["los_days"] / stats["visits"], 1)
+                if stats["visits"]
+                else 0,
+                "avg_satisfaction": round(
+                    stats["satisfaction_sum"] / stats["satisfaction_count"], 1
+                )
+                if stats["satisfaction_count"]
+                else 0,
+                "staff": staff_by_service.get(code, 0),
+                "attendance_pct": round(present * 100 / total, 1) if total else 0.0,
+            }
+        )
+
+    total_satisfaction = sum((v.satisfaction or 0) for v in visits if v.satisfaction is not None)
+    satisfaction_count = sum(1 for v in visits if v.satisfaction is not None)
+    total_los = sum((v.departure_date - v.arrival_date).days for v in visits)
+
+    return {
+        "available": True,
+        "dataset": {
+            "visits": len(visits),
+            "staff": len(staff),
+            "weeks": len(weekly_trend),
+            "services": len(service_stats),
+            "shifts": len(shifts),
+            "avg_length_of_stay": round(total_los / len(visits), 1) if visits else 0,
+            "avg_satisfaction": round(total_satisfaction / satisfaction_count, 1)
+            if satisfaction_count
+            else 0,
+        },
+        "services": services_payload,
+        "weekly": weekly_payload,
+        "staff_attendance": staff_payload,
+        "data_quality": quality,
     }
 
 

@@ -357,6 +357,22 @@ export default function RegisterPage() {
                   {t("dept.neurology")}
                 </option>
 
+                <option value="emergency">
+                  {t("dept.emergency")}
+                </option>
+
+                <option value="surgery">
+                  {t("dept.surgery")}
+                </option>
+
+                <option value="general_medicine">
+                  {t("dept.general_medicine")}
+                </option>
+
+                <option value="icu">
+                  {t("dept.icu")}
+                </option>
+
               </select>
 
               {errors.department && (

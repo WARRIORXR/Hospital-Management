@@ -180,6 +180,53 @@ python -m pytest tests -q
 
 Coverage includes OTP issuance/verification, duplicate registrations, the full visit flow,
 priority dispatch, room-occupancy conflicts, requeue, daily token reset, and analytics shape.
+The demo import has its own suite (`tests/test_demo_data.py`) that checks row counts,
+referential integrity, idempotency, and admin-only access to the dataset summary.
+
+---
+
+### 4. Loading the Historical Demo Dataset
+
+The `backend/demo_data/` folder ships a hospital dataset used to populate the app with realistic
+history and a live queue:
+
+| File | Rows | Contents |
+| --- | --- | --- |
+| `patients.csv` | 1,000 | Completed inpatient visits, Jan 2025 – Jan 2026 |
+| `services_weekly.csv` | 208 | 52 weeks × 4 services: beds, requests, admissions, refusals, satisfaction, morale, events |
+| `staff.csv` | 110 | Roster: 18 doctors, 69 nurses, 23 nursing assistants |
+| `staff_schedule.csv` | 6,552 | Weekly attendance (126 people × 52 weeks) |
+
+Import it after the backend has started at least once:
+
+```bash
+cd backend
+python import_demo_data.py                 # add missing rows and refresh today's demo tokens
+python import_demo_data.py --reset         # wipe this dataset first, then re-import
+python import_demo_data.py --no-live-queue # history only; leave the live queue alone
+python import_demo_data.py --live-per-service 10  # tokens per service for today (default 6)
+```
+
+The importer is idempotent: rows are matched by natural key (patient ref, week + service, staff
+ref, staff + week), so re-running only refreshes today's demo tokens. A JSON report is printed and
+stored in `demo_import_meta`, and the Admin console renders it under **Historical Hospital Dataset**
+(visit totals, length of stay, satisfaction, weekly demand vs admissions, service performance,
+roster attendance, and the import quality report).
+
+**Service mapping.** `emergency`, `surgery`, `general_medicine` and `icu` become first-class
+departments (Emergency, Surgery, General Medicine Ward, Intensive Care Unit). Each CSV doctor is
+imported as a clinical doctor with an OPD schedule, so the four services appear on the public page,
+the staff console and the hospital console. Six dataset visits per service are also seeded as
+today's waiting tokens (prefixed phone `90000009`) so the live screens have data; they are
+replaced on every import run.
+
+**Data-quality decisions.** `staff_schedule.csv` cannot be joined by id: none of its 126 ids exist
+in `staff.csv`, 16 names belong to patients rather than staff, and 77 matched names disagree with
+the roster on role/service. The roster is authoritative: shifts are joined by name, the roster's
+role/service win, and the 832 rows for the 16 unknown names are rejected and listed in the report.
+`patients.csv` and `services_weekly.csv` are validated strictly (ISO dates, departure ≥ arrival,
+age 0–120, `requested = admitted + refused`, `admitted ≤ beds`, 0–100 scores) and the import
+aborts without writing if any row fails.
 
 ---
 
@@ -201,6 +248,7 @@ priority dispatch, room-occupancy conflicts, requeue, daily token reset, and ana
 | `PUT` | `/patients/{id}/requeue` | Return a skipped/cancelled visit to the queue |
 | `GET` | `/patients/{id}/queue-status` | Live position and estimated wait |
 | `GET` | `/admin/overview` \| `/admin/department-load` \| `/admin/analytics` | Operations dashboards (admin only) |
+| `GET` | `/demo/overview` | Historical dataset summary and import quality report (admin only) |
 
 Protected routes return `401` without a session, `403` when the role is wrong, and patient
 tokens are scoped to their own mobile number (`403` on another patient's record).

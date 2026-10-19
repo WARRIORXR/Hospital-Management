@@ -10,6 +10,10 @@ class Department(str, Enum):
     orthopedics = "orthopedics"
     neurology = "neurology"
     general = "general"
+    emergency = "emergency"
+    surgery = "surgery"
+    general_medicine = "general_medicine"
+    icu = "icu"
 
 class Priority(str, Enum):
     emergency = "emergency"

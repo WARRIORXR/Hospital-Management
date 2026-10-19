@@ -71,6 +71,67 @@ type AnalyticsData = {
   }[];
 };
 
+type DemoServiceStats = {
+  service: string;
+  visits: number;
+  avg_length_of_stay: number;
+  avg_satisfaction: number;
+  staff: number;
+  attendance_pct: number;
+};
+
+type DemoWeek = {
+  week: number;
+  requested: number;
+  admitted: number;
+  refused: number;
+  satisfaction: number;
+  morale: number;
+};
+
+type DemoStaffAttendance = {
+  name: string;
+  role: string;
+  service: string;
+  present: number;
+  total: number;
+  attendance_pct: number;
+};
+
+type DemoOverview = {
+  available: boolean;
+  dataset: {
+    visits: number;
+    staff: number;
+    weeks: number;
+    services: number;
+    shifts: number;
+    avg_length_of_stay: number;
+    avg_satisfaction: number;
+  } | null;
+  services: DemoServiceStats[];
+  weekly: DemoWeek[];
+  staff_attendance: DemoStaffAttendance[];
+  data_quality: {
+    schedule?: {
+      rows?: number;
+      accepted?: number;
+      rejected?: number;
+      rejected_name_count?: number;
+      role_service_conflicts?: number;
+    };
+    live_queue?: { queued_now?: number };
+    generated_at?: string;
+  } | null;
+};
+
+const SERVICE_LABELS: Record<string, string> = {
+  emergency: "Emergency",
+  surgery: "Surgery",
+  general_medicine: "General Medicine Ward",
+  icu: "Intensive Care Unit",
+};
+
 const PRIORITY_COLORS = ["#ef4444", "#f59e0b", "#ec4899", "#3b82f6", "#64748b"];
 
 export default function AdminDashboardPage() {
@@ -80,6 +141,7 @@ export default function AdminDashboardPage() {
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [deptLoads, setDeptLoads] = useState<DepartmentLoad[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [demoOverview, setDemoOverview] = useState<DemoOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   // Starts empty: rendering `new Date()` during SSR guarantees a mismatch.
@@ -135,6 +197,20 @@ export default function AdminDashboardPage() {
     }
   }, [router]);
 
+  // The historical dataset changes only when the importer runs, so it is not
+  // part of the 5-second live poll.
+  const fetchDemoOverview = useCallback(async () => {
+    try {
+      const response = await portalFetch("/demo/overview");
+      if (!response.ok) return;
+      const data: DemoOverview = await response.json();
+      setDemoOverview(data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      console.error("Demo overview fetch error:", err);
+    }
+  }, []);
+
   // Admin console is gated: employees sign in with their code + PIN.
   useEffect(() => {
     if (!hydrated) return;
@@ -144,6 +220,7 @@ export default function AdminDashboardPage() {
     }
 
     fetchData();
+    void fetchDemoOverview();
 
     let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -177,7 +254,7 @@ export default function AdminDashboardPage() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       abortRef.current?.abort();
     };
-  }, [fetchData, hydrated, session, router]);
+  }, [fetchData, fetchDemoOverview, hydrated, session, router]);
 
   const activeBottlenecks = deptLoads.filter((d) => d.bottleneck_alert);
 
@@ -665,6 +742,222 @@ export default function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* 6. HISTORICAL DATASET */}
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-950">
+                Historical Hospital Dataset
+              </h3>
+              <p className="text-xs text-slate-500">
+                Imported completed visits, weekly service load and the staff roster. Reported separately from today&apos;s live queue.
+              </p>
+            </div>
+            <span className="w-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Demo import
+            </span>
+          </div>
+
+          {demoOverview?.available && demoOverview.dataset ? (
+            <div className="space-y-6 p-6">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    label: "Historical Visits",
+                    value: demoOverview.dataset.visits.toLocaleString(),
+                    hint: `${demoOverview.dataset.weeks} weeks · ${demoOverview.dataset.services} services`,
+                  },
+                  {
+                    label: "Avg. Length of Stay",
+                    value: `${demoOverview.dataset.avg_length_of_stay}d`,
+                    hint: "Arrival to departure",
+                  },
+                  {
+                    label: "Avg. Patient Satisfaction",
+                    value: `${demoOverview.dataset.avg_satisfaction}%`,
+                    hint: "Across imported visits",
+                  },
+                  {
+                    label: "Staff Roster",
+                    value: demoOverview.dataset.staff.toLocaleString(),
+                    hint: `${demoOverview.dataset.shifts.toLocaleString()} weekly shifts imported`,
+                  },
+                ].map((card) => (
+                  <div key={card.label} className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      {card.label}
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-slate-950">{card.value}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{card.hint}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 p-5">
+                  <h4 className="text-sm font-bold text-slate-950">
+                    Weekly Demand vs Admissions
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Summed across the four services for all 52 imported weeks.
+                  </p>
+                  <div className="mt-4 h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={demoOverview.weekly}>
+                        <defs>
+                          <linearGradient id="demoRequested" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
+                          </linearGradient>
+                          <linearGradient id="demoAdmitted" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+                        <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#64748b" }} />
+                        <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "12px",
+                            border: "1px solid #e2e8f0",
+                            fontSize: "12px",
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }} />
+                        <Area
+                          type="monotone"
+                          dataKey="requested"
+                          name="Patients Requested"
+                          stroke="#3b82f6"
+                          fill="url(#demoRequested)"
+                          strokeWidth={2}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="admitted"
+                          name="Patients Admitted"
+                          stroke="#10b981"
+                          fill="url(#demoAdmitted)"
+                          strokeWidth={2}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="refused"
+                          name="Patients Refused"
+                          stroke="#f59e0b"
+                          fill="transparent"
+                          strokeWidth={2}
+                          strokeDasharray="4 3"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 p-5">
+                  <h4 className="text-sm font-bold text-slate-950">Service Performance</h4>
+                  <p className="text-xs text-slate-500">
+                    Visits, stay length, satisfaction and roster attendance per service.
+                  </p>
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="py-2 pr-3">Service</th>
+                          <th className="px-3 py-2">Visits</th>
+                          <th className="px-3 py-2">Avg Stay</th>
+                          <th className="px-3 py-2">Satisfaction</th>
+                          <th className="px-3 py-2">Staff</th>
+                          <th className="py-2 pl-3 text-right">Attendance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {demoOverview.services.map((row) => (
+                          <tr key={row.service}>
+                            <td className="py-2.5 pr-3 font-bold text-slate-900">
+                              {SERVICE_LABELS[row.service] ?? row.service}
+                            </td>
+                            <td className="px-3 py-2.5 text-slate-600">{row.visits}</td>
+                            <td className="px-3 py-2.5 text-slate-600">{row.avg_length_of_stay}d</td>
+                            <td className="px-3 py-2.5 text-slate-600">{row.avg_satisfaction}%</td>
+                            <td className="px-3 py-2.5 text-slate-600">{row.staff}</td>
+                            <td className="py-2.5 pl-3 text-right font-bold text-blue-600">
+                              {row.attendance_pct}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 p-5">
+                  <h4 className="text-sm font-bold text-slate-950">Roster Attendance</h4>
+                  <p className="text-xs text-slate-500">
+                    Highest attendance across the imported 52-week schedule.
+                  </p>
+                  <ul className="mt-4 space-y-3">
+                    {demoOverview.staff_attendance.slice(0, 6).map((person) => (
+                      <li key={`${person.name}-${person.service}`}>
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <span className="font-bold text-slate-800">
+                            {person.name}
+                            <span className="ml-2 font-medium text-slate-400 capitalize">
+                              {person.role.replace("_", " ")}
+                            </span>
+                          </span>
+                          <span className="font-bold text-slate-600">{person.attendance_pct}%</span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-blue-500"
+                            style={{ width: `${Math.min(person.attendance_pct, 100)}%` }}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
+                  <h4 className="text-sm font-bold text-amber-900">Import Quality Report</h4>
+                  <p className="mt-2 text-xs leading-5 text-amber-800">
+                    {demoOverview.data_quality?.schedule ? (
+                      <>
+                        Read {demoOverview.data_quality.schedule.rows?.toLocaleString()} schedule rows;{" "}
+                        {demoOverview.data_quality.schedule.accepted?.toLocaleString()} matched to the roster and{" "}
+                        {demoOverview.data_quality.schedule.rejected?.toLocaleString()} rejected because{" "}
+                        {demoOverview.data_quality.schedule.rejected_name_count} names are not on it.{" "}
+                        {demoOverview.data_quality.schedule.role_service_conflicts} matched names had conflicting
+                        role/service values, resolved in the roster&apos;s favour.
+                      </>
+                    ) : (
+                      "The importer did not leave a quality report for this dataset."
+                    )}
+                  </p>
+                  <p className="mt-3 text-xs leading-5 text-amber-800">
+                    {demoOverview.data_quality?.live_queue?.queued_now ?? 0} dataset visits were also seeded as
+                    today&apos;s waiting tokens so the live screens stay populated. Historical rows never affect
+                    today&apos;s counters.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="px-6 py-10 text-center text-sm text-slate-500">
+              No historical dataset imported yet. Run{" "}
+              <code className="rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-800">
+                python import_demo_data.py
+              </code>{" "}
+              inside <code className="text-xs font-bold text-slate-800">backend/</code> to load the CSVs.
+            </div>
+          )}
         </div>
       </div>
     </main>
