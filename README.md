@@ -305,9 +305,17 @@ Interactive docs are available at `http://127.0.0.1:8000/docs`.
 ## ☁️ Deployment
 
 ### 1. Cloudflare Pages (Frontend Edge CDN) ⛅
-The Next.js frontend can be deployed globally across Cloudflare's edge network:
-- **Production URL:** [https://queueless.pages.dev](https://queueless.pages.dev)
-- **Deployment Guide:** [DEPLOY_CLOUDFLARE.md](DEPLOY_CLOUDFLARE.md) covers Git-based deployment via Cloudflare Dashboard and direct deployment using Wrangler CLI.
+The Next.js frontend is deployed globally across Cloudflare's high-speed edge network with automated CI/CD connected to the repository:
+- **Live Production URL:** [https://queueless.pages.dev](https://queueless.pages.dev)
+- **Automated Deployment:** Pushing commits to `main` triggers automated Cloudflare Pages builds and zero-downtime edge deployments.
+- **Build Configuration:**
+  - **Framework Preset:** Next.js (Static HTML Export)
+  - **Root Directory:** `frontend`
+  - **Build Command:** `npm run build` (automatically outputs static export to `out/` via `CF_PAGES=1`)
+  - **Output Directory:** `out`
+  - **Environment Variables:** `NEXT_PUBLIC_API_URL=https://queueless-api-lvf5.onrender.com`
+- **Deployment Guide:** See [DEPLOY_CLOUDFLARE.md](DEPLOY_CLOUDFLARE.md) for step-by-step dashboard connection and Wrangler CLI instructions.
+- **Cloudflare Developer Environment:** Equipped with official Cloudflare Agent Skills and remote Model Context Protocol (`https://mcp.cloudflare.com/mcp`) integration in `.vscode/mcp.json`.
 
 ### 2. Render Blueprint (Full-Stack Backend & PostgreSQL) 🚀
 QueueLess includes an infrastructure-as-code **Render Blueprint** (`render.yaml`) that provisions the FastAPI backend, Next.js frontend web service, and managed PostgreSQL instance:
@@ -315,6 +323,9 @@ QueueLess includes an infrastructure-as-code **Render Blueprint** (`render.yaml`
 - **Interactive OpenAPI / Swagger Docs:** [https://queueless-api-lvf5.onrender.com/docs](https://queueless-api-lvf5.onrender.com/docs)
 - **Render Web Frontend:** [https://queueless-web.onrender.com](https://queueless-web.onrender.com)
 - **Deployment Guide:** See [DEPLOY_RENDER.md](DEPLOY_RENDER.md).
+
+### 3. Vercel Multi-Service Deployment ⚡
+QueueLess is also configured for unified Vercel deployment with service bindings between frontend and backend via `vercel.json`.
 
 > [!NOTE]
 > The historical demo dataset is not imported automatically on first deploy. To populate a deployed environment, run

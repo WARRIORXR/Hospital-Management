@@ -74,3 +74,11 @@ Ensure your backend accepts requests from your Cloudflare Pages domain:
    FRONTEND_ORIGINS=https://queueless.pages.dev,https://queueless-web.onrender.com
    ```
 3. Redeploy the backend so cross-origin requests are permitted.
+
+---
+
+## 🤖 Cloudflare AI Agent & MCP Setup
+
+This repository is configured according to the official Cloudflare Agent Developer guidelines ([developers.cloudflare.com/agent-setup](https://developers.cloudflare.com/agent-setup/prompt.md)):
+- **Cloudflare Skills:** Installed globally across agents (`~/.agents/skills/`) covering Workers, Pages, Durable Objects, and Wrangler workflows.
+- **Model Context Protocol (MCP):** Configured in `.vscode/mcp.json` connecting directly to `https://mcp.cloudflare.com/mcp` for edge administration and automated tooling.
