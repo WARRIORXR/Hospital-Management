@@ -3,7 +3,7 @@
 
 <div align="center">
 
-[![Live Application](https://img.shields.io/badge/Live_App-queueless.pages.dev-0070f3?style=for-the-badge&logo=cloudflare&logoColor=white)](https://queueless.pages.dev)
+[![Live Application](https://img.shields.io/badge/Live_App-queueless--web.onrender.com-0070f3?style=for-the-badge&logo=render&logoColor=white)](https://queueless-web.onrender.com)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/WARRIORXR/Hospital-Management)
 [![Render Backend](https://img.shields.io/badge/Render-FastAPI_Backend-46E3B7?style=for-the-badge&logo=render)](https://queueless-api-lvf5.onrender.com)
 [![API Documentation](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-lvf5.onrender.com/docs)
@@ -12,14 +12,14 @@
 
 ---
 
-### 🌐 Single Live Link
-👉 **[https://queueless.pages.dev](https://queueless.pages.dev)**
+### 🌐 Live Application
+👉 **[https://queueless-web.onrender.com](https://queueless-web.onrender.com)**
 
-> **Experience QueueLess Live:** The application is deployed and running live on Cloudflare Pages at **[https://queueless.pages.dev](https://queueless.pages.dev)**. Explore patient self-service registration, live queue wait-time trackers, doctor/staff consultation dashboards, and hospital-wide admin analytics.
+> **Experience QueueLess Live:** The application is deployed and running live at **[https://queueless-web.onrender.com](https://queueless-web.onrender.com)**. Choose your section (Patient, Staff, Hospital, or Admin) to access real-time hospital queues, OPD wait-time estimation, and management consoles.
 
 ---
 
-**QueueLess** is an intelligent, full-stack hospital management web application designed to streamline patient registration, queue flow, and consultation management across hospital Outpatient Departments (OPDs). Accessible live at **[https://queueless.pages.dev](https://queueless.pages.dev)**, it eliminates physical crowding and chaotic waiting rooms through digital token generation, real-time wait-time estimation, priority-aware triage, and role-based portals for patients, doctors, and hospital administrators.
+**QueueLess** is an intelligent, full-stack hospital management web application designed to streamline patient registration, queue flow, and consultation management across hospital Outpatient Departments (OPDs). Accessible live at **[https://queueless-web.onrender.com](https://queueless-web.onrender.com)**, it eliminates physical crowding and chaotic waiting rooms through digital token generation, real-time wait-time estimation, priority-aware triage, and role-based portals for patients, doctors, and hospital administrators.
 
 ---
 

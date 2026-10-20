@@ -27,7 +27,7 @@ Connecting your GitHub repository to Cloudflare Pages enables automatic builds a
    - Authorize Cloudflare with your GitHub account (`WARRIORXR`).
    - Select the repository: `WARRIORXR/Hospital-Management`.
 4. **Configure Build Settings:**
-   - **Project name:** `queueless` (or your choice, e.g., `hospital-management`).
+   - **Project name:** `queueless-hospital` (or custom name e.g., `queueless-live`).
    - **Production branch:** `main`
    - **Framework preset:** `Next.js (Static HTML Export)` or `None`
    - **Root directory:** `frontend`
@@ -40,7 +40,7 @@ Connecting your GitHub repository to Cloudflare Pages enables automatic builds a
 6. **Deploy:**
    - Click **Save and Deploy**.
    - Cloudflare will build the Next.js frontend and provide your live URL:  
-     👉 **`https://queueless.pages.dev`**
+     👉 **`https://queueless-hospital.pages.dev`**
 
 ---
 
