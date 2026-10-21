@@ -168,7 +168,6 @@ export default function DoctorPortalPage() {
       return;
     }
 
-    setLoading(true);
     fetchDepartmentPatients();
 
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -437,6 +436,7 @@ export default function DoctorPortalPage() {
               <button
                 key={dept.id}
                 onClick={() => {
+                  setLoading(true);
                   setSelectedDept(dept.id);
                   setMessage(null);
                 }}

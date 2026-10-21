@@ -1,7 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Integer, String
 from database import Base
+
+
+def _utc_now_naive():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Patient(Base):
@@ -16,4 +20,4 @@ class Patient(Base):
     status = Column(String, nullable=True, index=True)
     symptoms = Column(String, nullable=True)
     priority = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=True, index=True)
+    created_at = Column(DateTime, default=_utc_now_naive, nullable=True, index=True)

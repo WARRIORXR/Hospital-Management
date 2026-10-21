@@ -151,11 +151,10 @@ export default function AdminDashboardPage() {
   const inFlight = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchData = useCallback(async (manual = false) => {
+  const fetchData = useCallback(async () => {
     if (inFlight.current) return;
 
     inFlight.current = true;
-    if (manual) setIsRefreshing(true);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -226,7 +225,7 @@ export default function AdminDashboardPage() {
 
     const start = () => {
       if (timer === null) {
-        timer = setInterval(() => fetchData(false), 5000);
+        timer = setInterval(fetchData, 5000);
       }
     };
 
@@ -241,7 +240,7 @@ export default function AdminDashboardPage() {
       if (document.hidden) {
         stop();
       } else {
-        fetchData(false);
+        fetchData();
         start();
       }
     };
@@ -298,7 +297,10 @@ export default function AdminDashboardPage() {
             </div>
 
             <button
-              onClick={() => fetchData(true)}
+              onClick={() => {
+                setIsRefreshing(true);
+                fetchData();
+              }}
               disabled={isRefreshing}
               className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition disabled:opacity-50"
             >

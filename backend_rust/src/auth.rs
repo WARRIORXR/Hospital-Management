@@ -93,3 +93,38 @@ pub fn decode_token(
     )?;
     Ok(token_data.claims)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hash_and_verify_pin() {
+        let pin = "123456";
+        let hashed = hash_pin(pin);
+        assert!(hashed.starts_with("pbkdf2_sha256$260000$"));
+        assert!(verify_pin(pin, &hashed));
+        assert!(!verify_pin("wrong_pin", &hashed));
+    }
+
+    #[test]
+    fn test_jwt_create_and_decode() {
+        let secret = "test-secret-key-32-chars-long!!";
+        let token = create_token("ADM-001", "admin", Some("Administrator"), secret, 3600)
+            .expect("token creation should succeed");
+
+        let claims = decode_token(&token, secret).expect("token decode should succeed");
+        assert_eq!(claims.sub, "ADM-001");
+        assert_eq!(claims.role, "admin");
+        assert_eq!(claims.name.as_deref(), Some("Administrator"));
+
+        // Wrong secret must fail
+        assert!(decode_token(&token, "wrong-secret-key-must-fail!!!").is_err());
+    }
+
+    #[test]
+    fn test_verify_pin_invalid_format() {
+        assert!(!verify_pin("123456", "invalid_format"));
+        assert!(!verify_pin("123456", "pbkdf2_sha256$invalid$salt$hash"));
+    }
+}

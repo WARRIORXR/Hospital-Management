@@ -1,7 +1,7 @@
 """End-to-end tests for the QueueLess API."""
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -225,7 +225,7 @@ def test_by_phone_unknown_number(client):
 def test_tokens_restart_each_hospital_day(client, db):
     _register(client, phone="9000000050")
 
-    yesterday = datetime.utcnow() - timedelta(days=1)
+    yesterday = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
     for row in db.query(main.Patient).all():
         row.created_at = yesterday
     db.commit()

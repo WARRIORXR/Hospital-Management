@@ -63,8 +63,6 @@ export default function QueueClient() {
     abortRef.current = controller;
 
     try {
-      setError("");
-
       const [patientResponse, queueResponse] = await Promise.all([
         patientFetch(`/patients/${patientId}`, { signal: controller.signal }),
         patientFetch(`/patients/${patientId}/queue-status`, {
@@ -93,6 +91,7 @@ export default function QueueClient() {
 
       setPatient(patientData);
       setQueueStatus(queueData);
+      setError("");
       setLastUpdated(new Date());
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;

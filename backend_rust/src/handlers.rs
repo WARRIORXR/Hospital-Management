@@ -939,3 +939,76 @@ pub async fn hospital_overview(State(state): State<Arc<AppState>>) -> impl IntoR
         "schedules": scheds
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::init_db;
+
+    async fn setup_test_state() -> Arc<AppState> {
+        let pool = init_db("sqlite::memory:").await.expect("init test db");
+        Arc::new(AppState {
+            pool,
+            jwt_secret: "test-secret-key-32-chars-long!!".to_string(),
+        })
+    }
+
+    #[tokio::test]
+    async fn test_root_and_health() {
+        let state = setup_test_state().await;
+        let root_res = root().await.into_response();
+        assert_eq!(root_res.status(), StatusCode::OK);
+
+        let health_res = health(State(state)).await.into_response();
+        assert_eq!(health_res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_otp_flow() {
+        let state = setup_test_state().await;
+
+        // Invalid phone
+        let invalid = request_otp(Json(OtpRequest { phone: "123".into() })).await.into_response();
+        assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+
+        // Valid phone
+        let valid = request_otp(Json(OtpRequest { phone: "9876543210".into() })).await.into_response();
+        assert_eq!(valid.status(), StatusCode::OK);
+
+        // Verify OTP
+        let verify = verify_otp(
+            State(state),
+            Json(OtpVerifyRequest {
+                phone: "9876543210".into(),
+                code: "123456".into(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(verify.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_patient_registration_and_queue() {
+        let state = setup_test_state().await;
+
+        let reg = register_patient(
+            State(state.clone()),
+            Json(PatientRegisterRequest {
+                name: "Rohan Sharma".into(),
+                age: 32,
+                phone: "9988776655".into(),
+                department: "cardiology".into(),
+                symptoms: Some("Chest discomfort".into()),
+                priority: Some("emergency".into()),
+            }),
+        )
+        .await
+        .into_response();
+
+        assert_eq!(reg.status(), StatusCode::CREATED);
+
+        let q_status = queue_status(State(state), Path(1)).await.into_response();
+        assert_eq!(q_status.status(), StatusCode::OK);
+    }
+}

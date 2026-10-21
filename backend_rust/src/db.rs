@@ -167,3 +167,25 @@ async fn seed_initial_data(pool: &DbPool) -> Result<(), sqlx::Error> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_init_db_in_memory() {
+        let pool = init_db("sqlite::memory:").await.expect("in-memory db init should succeed");
+
+        let dept_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM departments")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert!(dept_count.0 >= 6);
+
+        let user_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(user_count.0, 3);
+    }
+}

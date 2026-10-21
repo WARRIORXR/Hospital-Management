@@ -180,11 +180,10 @@ export default function Home() {
   const inFlight = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchOpds = useCallback(async (showRefreshing = false) => {
+  const fetchOpds = useCallback(async () => {
     if (inFlight.current) return;
 
     inFlight.current = true;
-    if (showRefreshing) setIsRefreshing(true);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -219,7 +218,7 @@ export default function Home() {
 
     const start = () => {
       if (interval === null) {
-        interval = setInterval(() => fetchOpds(false), 8000);
+        interval = setInterval(fetchOpds, 8000);
       }
     };
 
@@ -234,7 +233,7 @@ export default function Home() {
       if (document.hidden) {
         stop();
       } else {
-        fetchOpds(false);
+        fetchOpds();
         start();
       }
     };
@@ -460,7 +459,10 @@ export default function Home() {
                 )}
               </div>
               <button
-                onClick={() => fetchOpds(true)}
+                onClick={() => {
+                  setIsRefreshing(true);
+                  fetchOpds();
+                }}
                 disabled={isRefreshing}
                 className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition disabled:opacity-50"
                 title={t("common.refresh")}
@@ -481,7 +483,10 @@ export default function Home() {
                   </p>
                 </div>
                 <button
-                  onClick={() => fetchOpds(true)}
+                  onClick={() => {
+                    setIsRefreshing(true);
+                    fetchOpds();
+                  }}
                   className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700"
                 >
                   {t("common.retry")}

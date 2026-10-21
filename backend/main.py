@@ -284,7 +284,7 @@ class OtpStore:
 
     def issue(self, phone: str) -> tuple[str | None, int]:
         """Return (code, retry_after_seconds). Code is None while rate limited."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         with self._lock:
             entry = self._entries.get(phone)
             if entry and (now - entry["issued_at"]).total_seconds() < OTP_RESEND_SECONDS:
@@ -302,7 +302,7 @@ class OtpStore:
 
     def verify(self, phone: str, code: str) -> None:
         """Raise HTTPException unless the code matches and is still valid."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         with self._lock:
             entry = self._entries.get(phone)
             if not entry:
@@ -547,7 +547,7 @@ def create_patient(
         status="waiting",
         symptoms=(patient.symptoms or "").strip() or None,
         priority=(patient.priority.value if hasattr(patient.priority, "value") else patient.priority) or "regular",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     db.add(new_patient)

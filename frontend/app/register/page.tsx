@@ -10,7 +10,12 @@ export default function RegisterPage() {
   const router = useRouter();
   const { t } = useI18n();
 
-  const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [verifiedPhone] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("verifiedPhone") || "";
+    }
+    return "";
+  });
 
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -42,8 +47,6 @@ export default function RegisterPage() {
       router.replace("/verify");
       return;
     }
-
-    setVerifiedPhone(phone);
   }, [router]);
 
   // --------------------------------------------------
