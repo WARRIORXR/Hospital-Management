@@ -175,7 +175,7 @@ function VerifyFlow() {
                     }
                     maxLength={10}
                     placeholder="9876543210"
-                    className="w-full px-4 py-3 text-sm outline-none"
+                    className="w-full bg-transparent px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none"
                   />
                 </div>
 
@@ -229,7 +229,7 @@ function VerifyFlow() {
                   }
                   maxLength={6}
                   placeholder={t("verify.otpPlaceholder")}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
 
                 <button

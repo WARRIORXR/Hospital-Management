@@ -198,19 +198,19 @@ export default function HospitalPage() {
                 onChange={(e) =>
                   setNewDept({ ...newDept, code: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })
                 }
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
               <input
                 placeholder={t("hospital.name")}
                 value={newDept.name}
                 onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
               <input
                 placeholder={t("hospital.description")}
                 value={newDept.description}
                 onChange={(e) => setNewDept({ ...newDept, description: e.target.value })}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
               <div className="flex gap-2 sm:col-span-3">
                 <button
@@ -311,7 +311,7 @@ export default function HospitalPage() {
                         setTimingDrafts({ ...timingDrafts, [dept.id]: e.target.value })
                       }
                       placeholder={t("hospital.timingPlaceholder")}
-                      className="mt-1.5 w-56 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
+                      className="mt-1.5 w-56 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
                     />
                   </div>
                   <button
@@ -422,7 +422,7 @@ export default function HospitalPage() {
                         placeholder={t("hospital.doctorName")}
                         value={newDoctor.name}
                         onChange={(e) => setNewDoctor({ ...newDoctor, name: e.target.value })}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       />
                       <input
                         placeholder={t("hospital.specialization")}
@@ -430,7 +430,7 @@ export default function HospitalPage() {
                         onChange={(e) =>
                           setNewDoctor({ ...newDoctor, specialization: e.target.value })
                         }
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       />
                       <input
                         placeholder={t("hospital.room")}
@@ -438,7 +438,7 @@ export default function HospitalPage() {
                         onChange={(e) =>
                           setNewDoctor({ ...newDoctor, room_number: e.target.value })
                         }
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       />
                       <button
                         disabled={busyKey === `doctor-${dept.id}` || !newDoctor.name || !newDoctor.room_number}
@@ -476,7 +476,7 @@ export default function HospitalPage() {
                   value={doctorDraft.name}
                   onChange={(e) => setDoctorDraft({ ...doctorDraft, name: e.target.value })}
                   placeholder={t("hospital.doctorName")}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
                 <input
                   value={doctorDraft.specialization}
@@ -484,7 +484,7 @@ export default function HospitalPage() {
                     setDoctorDraft({ ...doctorDraft, specialization: e.target.value })
                   }
                   placeholder={t("hospital.specialization")}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
                 <input
                   value={doctorDraft.room_number}
@@ -492,7 +492,7 @@ export default function HospitalPage() {
                     setDoctorDraft({ ...doctorDraft, room_number: e.target.value })
                   }
                   placeholder={t("hospital.room")}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
               <div className="mt-5 flex gap-2">

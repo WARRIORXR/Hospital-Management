@@ -261,7 +261,7 @@ export default function RegisterPage() {
                   errors.name
                     ? "border-red-400"
                     : "border-slate-200"
-                } bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
+                } bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
               />
 
               {errors.name && (
@@ -297,7 +297,7 @@ export default function RegisterPage() {
                   errors.age
                     ? "border-red-400"
                     : "border-slate-200"
-                } bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
+                } bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
               />
 
               {errors.age && (
@@ -329,7 +329,7 @@ export default function RegisterPage() {
                   errors.department
                     ? "border-red-400"
                     : "border-slate-200"
-                } bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
+                } bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
               >
 
                 <option value="">
@@ -403,7 +403,7 @@ export default function RegisterPage() {
                 onChange={(e) =>
                   setPriority(e.target.value)
                 }
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
 
                 <option value="regular">
@@ -456,7 +456,7 @@ export default function RegisterPage() {
                 }
                 rows={4}
                 placeholder={t("register.symptomsPlaceholder")}
-                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
 
             </div>
