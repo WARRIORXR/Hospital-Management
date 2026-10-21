@@ -191,7 +191,7 @@ export default function RegisterPage() {
             {t("register.title")}
           </h1>
 
-          <p className="mt-3 text-slate-500">
+          <p className="mt-3 text-sm font-medium text-slate-600">
             {t("register.subtitle")}
           </p>
 
@@ -244,7 +244,7 @@ export default function RegisterPage() {
 
               <label
                 htmlFor="name"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-2 block text-sm font-bold text-slate-900"
               >
                 {t("register.nameLabel")}
               </label>
@@ -261,11 +261,11 @@ export default function RegisterPage() {
                   errors.name
                     ? "border-red-400"
                     : "border-slate-200"
-                } bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
+                } bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
               />
 
               {errors.name && (
-                <p className="mt-1.5 text-xs font-medium text-red-500">
+                <p className="mt-1.5 text-xs font-semibold text-red-600">
                   {errors.name}
                 </p>
               )}
@@ -278,7 +278,7 @@ export default function RegisterPage() {
 
               <label
                 htmlFor="age"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-2 block text-sm font-bold text-slate-900"
               >
                 {t("register.ageLabel")}
               </label>
@@ -297,11 +297,11 @@ export default function RegisterPage() {
                   errors.age
                     ? "border-red-400"
                     : "border-slate-200"
-                } bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
+                } bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
               />
 
               {errors.age && (
-                <p className="mt-1.5 text-xs font-medium text-red-500">
+                <p className="mt-1.5 text-xs font-semibold text-red-600">
                   {errors.age}
                 </p>
               )}
@@ -314,7 +314,7 @@ export default function RegisterPage() {
 
               <label
                 htmlFor="department"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-2 block text-sm font-bold text-slate-900"
               >
                 {t("register.departmentLabel")}
               </label>
@@ -392,7 +392,7 @@ export default function RegisterPage() {
 
               <label
                 htmlFor="priority"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-2 block text-sm font-bold text-slate-900"
               >
                 {t("register.priorityLabel")}
               </label>
@@ -428,7 +428,7 @@ export default function RegisterPage() {
 
               </select>
 
-              <p className="mt-2 text-xs leading-5 text-slate-400">
+              <p className="mt-2 text-xs font-medium leading-5 text-slate-600">
                 {t("register.priorityNote")}
               </p>
 
@@ -440,10 +440,10 @@ export default function RegisterPage() {
 
               <label
                 htmlFor="symptoms"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-2 block text-sm font-bold text-slate-900"
               >
                 {t("register.symptomsLabel")}
-                <span className="ml-1 font-normal text-slate-400">
+                <span className="ml-1 font-semibold text-slate-500">
                   {t("register.optional")}
                 </span>
               </label>
@@ -456,7 +456,7 @@ export default function RegisterPage() {
                 }
                 rows={4}
                 placeholder={t("register.symptomsPlaceholder")}
-                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
 
             </div>
@@ -489,7 +489,7 @@ export default function RegisterPage() {
 
             </button>
 
-            <p className="text-center text-xs text-slate-400">
+            <p className="text-center text-xs font-medium text-slate-600">
               {t("register.linkNote")}
             </p>
 
@@ -499,7 +499,7 @@ export default function RegisterPage() {
 
         {/* FOOTER */}
 
-        <div className="mt-5 text-center text-xs text-slate-400">
+        <div className="mt-5 text-center text-xs font-medium text-slate-500">
           {t("register.security")}
         </div>
 

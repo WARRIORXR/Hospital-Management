@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --background: #f6f9fc;
   --foreground: #0f172a;
 }
@@ -12,23 +13,56 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  color-scheme: light;
+}
+
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Ensure form text always remains sharp and high-contrast across all OS color schemes */
+/* Ensure form controls always have high-contrast, fully visible text across all OS themes */
 input,
 textarea,
 select {
   color: #0f172a !important;
-  background-color: #ffffff;
+  background-color: #ffffff !important;
 }
 
+input:focus,
+textarea:focus,
+select:focus {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+/* Ensure placeholder text is clearly visible and readable */
 input::placeholder,
 textarea::placeholder {
-  color: #94a3b8 !important;
-  opacity: 1;
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* Prevent browser autofill from making text pale or unreadable */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Accessibility enhancement: ensure text-slate-400 meets WCAG AA readability standards across the entire app */
+.text-slate-400 {
+  color: #64748b !important;
 }

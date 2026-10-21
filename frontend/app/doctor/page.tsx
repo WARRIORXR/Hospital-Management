@@ -427,7 +427,7 @@ export default function DoctorPortalPage() {
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* DEPARTMENT SELECTOR TABS */}
         <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700 mr-2">
             Select Department:
           </span>
           {deptList.map((dept) => {
@@ -476,45 +476,45 @@ export default function DoctorPortalPage() {
         {/* LIVE METRICS ROW */}
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
               Waiting Patients
             </p>
             <p className="mt-2 text-3xl font-black text-slate-900">
               {waitingPatients.length}
             </p>
-            <p className="mt-1 text-xs text-slate-500">In line for {currentOpd.name}</p>
+            <p className="mt-1 text-xs text-slate-600 font-medium">In line for {currentOpd.name}</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
               Priority Cases
             </p>
             <p className="mt-2 text-3xl font-black text-rose-600">
               {emergencyCount}
             </p>
-            <p className="mt-1 text-xs text-rose-500 font-medium">Emergency / Special care</p>
+            <p className="mt-1 text-xs text-rose-600 font-semibold">Emergency / Special care</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
               Currently Serving
             </p>
             <p className="mt-2 text-3xl font-black text-blue-600">
               {activePatient ? `Token #${activePatient.token_number}` : "None"}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-600 font-medium">
               {activePatient ? activePatient.status.toUpperCase() : "Waiting to call"}
             </p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
               Treated Today
             </p>
             <p className="mt-2 text-3xl font-black text-emerald-600">
               {completedPatients.length}
             </p>
-            <p className="mt-1 text-xs text-slate-500">Completed visits</p>
+            <p className="mt-1 text-xs text-slate-600 font-medium">Completed visits</p>
           </div>
         </div>
 
@@ -573,10 +573,10 @@ export default function DoctorPortalPage() {
 
                   {/* Symptoms / Notes */}
                   <div className="rounded-xl bg-slate-50 p-4 border border-slate-100">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
                       Reason For Visit / Reported Symptoms
                     </p>
-                    <p className="mt-1 text-xs font-medium text-slate-700 italic">
+                    <p className="mt-1 text-xs font-semibold text-slate-800 italic">
                       {activePatient.symptoms || "No specific symptoms reported during registration."}
                     </p>
                   </div>

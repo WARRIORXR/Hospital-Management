@@ -364,65 +364,65 @@ export default function AdminDashboardPage() {
         {/* 1. OVERVIEW STATS CARDS */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Total Intake
             </p>
             <p className="mt-1 text-3xl font-black text-slate-900">
               {loading ? "..." : overview?.total_patients}
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">Registered today</p>
+            <p className="mt-1 text-[11px] text-slate-600 font-medium">Registered today</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Waiting in Queue
             </p>
             <p className="mt-1 text-3xl font-black text-blue-600">
               {loading ? "..." : overview?.waiting_patients}
             </p>
-            <p className="mt-1 text-[11px] text-blue-600/80 font-medium">
+            <p className="mt-1 text-[11px] text-blue-700 font-semibold">
               ~{overview?.avg_wait_minutes}m avg wait
             </p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Consulting Now
             </p>
             <p className="mt-1 text-3xl font-black text-indigo-600">
               {loading ? "..." : overview?.consulting_patients}
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">In doctor rooms</p>
+            <p className="mt-1 text-[11px] text-slate-600 font-medium">In doctor rooms</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Completed Visits
             </p>
             <p className="mt-1 text-3xl font-black text-emerald-600">
               {loading ? "..." : overview?.completed_patients}
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">Finished care</p>
+            <p className="mt-1 text-[11px] text-slate-600 font-medium">Finished care</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Priority / Special
             </p>
             <p className="mt-1 text-3xl font-black text-rose-600">
               {loading ? "..." : overview?.emergency_cases}
             </p>
-            <p className="mt-1 text-[11px] text-rose-500 font-medium">Emergency / Elderly</p>
+            <p className="mt-1 text-[11px] text-rose-600 font-semibold">Emergency / Elderly</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Physicians Active
             </p>
             <p className="mt-1 text-3xl font-black text-slate-900">
               {loading ? "..." : `${overview?.active_doctors}/${overview?.total_doctors}`}
             </p>
-            <p className="mt-1 text-[11px] text-emerald-600 font-medium">On duty</p>
+            <p className="mt-1 text-[11px] text-emerald-700 font-semibold">On duty</p>
           </div>
         </div>
 

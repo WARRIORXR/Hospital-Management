@@ -141,7 +141,7 @@ function VerifyFlow() {
               {t("verify.title")}
             </h1>
 
-            <p className="mt-3 text-sm leading-6 text-slate-500">
+            <p className="mt-3 text-sm font-medium leading-6 text-slate-600">
               {t("verify.subtitle")}
             </p>
 
@@ -155,13 +155,13 @@ function VerifyFlow() {
               <div>
                 <label
                   htmlFor="phone"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
+                  className="mb-2 block text-sm font-bold text-slate-900"
                 >
                   {t("verify.mobileLabel")}
                 </label>
 
                 <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
-                  <span className="flex items-center border-r border-slate-200 px-3 text-sm font-semibold text-slate-500">
+                  <span className="flex items-center border-r border-slate-200 px-3 text-sm font-bold text-slate-700">
                     +91
                   </span>
 
@@ -175,11 +175,11 @@ function VerifyFlow() {
                     }
                     maxLength={10}
                     placeholder="9876543210"
-                    className="w-full bg-transparent px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none"
+                    className="w-full bg-transparent px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-500 outline-none"
                   />
                 </div>
 
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-2 text-xs font-medium text-slate-600">
                   {t("verify.sendHint")}
                 </p>
 
@@ -202,11 +202,11 @@ function VerifyFlow() {
                   </p>
 
                   {devCode ? (
-                    <p className="mt-1 text-xs text-blue-500">
+                    <p className="mt-1 text-xs font-bold text-blue-800">
                       {t("verify.devOtp", { code: devCode })}
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs text-blue-500">
+                    <p className="mt-1 text-xs font-semibold text-blue-700">
                       {t("verify.checkMessages")}
                     </p>
                   )}
@@ -214,7 +214,7 @@ function VerifyFlow() {
 
                 <label
                   htmlFor="otp"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
+                  className="mb-2 block text-sm font-bold text-slate-900"
                 >
                   {t("verify.otpLabel")}
                 </label>
@@ -229,7 +229,7 @@ function VerifyFlow() {
                   }
                   maxLength={6}
                   placeholder={t("verify.otpPlaceholder")}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] text-slate-900 placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
 
                 <button
@@ -262,7 +262,7 @@ function VerifyFlow() {
                     setError("");
                     setResendIn(0);
                   }}
-                  className="mt-1 w-full rounded-xl px-6 py-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                  className="mt-1 w-full rounded-xl px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                 >
                   {t("verify.changeNumber")}
                 </button>
@@ -282,7 +282,7 @@ function VerifyFlow() {
             )}
           </div>
 
-          <p className="mt-5 text-center text-xs text-slate-400">
+          <p className="mt-5 text-center text-xs font-medium text-slate-500">
             {t("verify.security")}
           </p>
         </div>

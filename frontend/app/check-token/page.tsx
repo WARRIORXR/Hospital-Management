@@ -118,7 +118,7 @@ export default function CheckTokenPage() {
                 {t("check.phoneLabel")}
               </label>
               <div className="relative mt-2">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-sm font-semibold text-slate-400">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-sm font-bold text-slate-700">
                   +91
                 </div>
                 <input
@@ -132,7 +132,7 @@ export default function CheckTokenPage() {
                     setNotFound(false);
                   }}
                   placeholder="9876543210"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3.5 pl-14 pr-4 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-14 pr-4 text-sm font-semibold text-slate-900 placeholder:text-slate-500 focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
                   disabled={loading}
                   autoFocus
                 />
@@ -174,7 +174,7 @@ export default function CheckTokenPage() {
           </form>
 
           <div className="mt-8 border-t border-slate-100 pt-6 text-center">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs font-medium text-slate-600">
               {t("check.newHere")}{" "}
               <Link
                 href="/verify"

@@ -100,13 +100,13 @@ function OpdCard({
 
         {/* Doctor & Room */}
         <div className="mt-5 rounded-xl bg-slate-50 p-4 border border-slate-100">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
             {t("card.attending")}
           </p>
           <div className="mt-1.5 flex items-center justify-between">
             <div>
               <p className="font-bold text-slate-900 text-sm">{doctor}</p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">{room}</p>
+              <p className="text-xs text-slate-600 font-semibold mt-0.5">{room}</p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-base shadow-sm">
               👨‍⚕️
@@ -117,13 +117,13 @@ function OpdCard({
         {/* Live Queue Numbers */}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               {t("card.inQueue")}
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900">
               {waiting}
             </p>
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-600 font-semibold">
               {waiting === 1
                 ? t("card.patientWaiting")
                 : t("card.patientsWaiting")}
@@ -131,13 +131,13 @@ function OpdCard({
           </div>
 
           <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               {t("card.estWait")}
             </p>
             <p className="mt-1 text-2xl font-black text-blue-600">
               {waitLabel}
             </p>
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-600 font-semibold">
               {t("card.approximate")}
             </p>
           </div>
@@ -147,7 +147,7 @@ function OpdCard({
       {/* Serving Token & Timing */}
       <div className="mt-4 flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700">
             {t("card.nowServing")}
           </p>
           <p className="mt-0.5 text-lg font-black text-blue-700">
@@ -158,10 +158,10 @@ function OpdCard({
         </div>
 
         <div className="text-right">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
             {t("card.opdHours")}
           </p>
-          <p className="mt-0.5 text-xs font-bold text-slate-700">{timing}</p>
+          <p className="mt-0.5 text-xs font-bold text-slate-800">{timing}</p>
         </div>
       </div>
     </div>
@@ -376,43 +376,43 @@ export default function Home() {
           {/* LIVE AGGREGATED METRICS */}
           <div className="mt-12 grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 {t("metrics.activeOpds")}
               </p>
               <p className="mt-2 text-3xl font-black text-slate-900">
                 {loading ? "..." : activeOpdsCount}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
                 {t("metrics.accepting")}
               </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 {t("metrics.specialists")}
               </p>
               <p className="mt-2 text-3xl font-black text-slate-900">
                 {loading ? "..." : opds.length}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
                 {t("metrics.onDuty")}
               </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 {t("metrics.waiting")}
               </p>
               <p className="mt-2 text-3xl font-black text-slate-900">
                 {loading ? "..." : totalWaiting}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
                 {t("metrics.acrossAll")}
               </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 {t("metrics.avgWait")}
               </p>
               <p className="mt-2 text-3xl font-black text-blue-600">
@@ -420,7 +420,7 @@ export default function Home() {
                   ? "..."
                   : `${averageWaitMinutes} ${t("common.minutes")}`}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
                 {t("metrics.currentAverage")}
               </p>
             </div>

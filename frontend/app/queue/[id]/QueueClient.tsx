@@ -373,7 +373,7 @@ export default function QueueClient() {
           {/* PATIENT SUMMARY */}
           <div className="grid gap-6 p-6 sm:grid-cols-3 sm:p-8">
             <div className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 {t("queue.patient")}
               </p>
 
@@ -383,7 +383,7 @@ export default function QueueClient() {
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 {t("queue.status")}
               </p>
 
@@ -395,7 +395,7 @@ export default function QueueClient() {
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 {t("queue.priority")}
               </p>
 
@@ -427,7 +427,7 @@ export default function QueueClient() {
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-2xl bg-slate-50 p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                   {t("queue.currentlyServing")}
                 </p>
 
@@ -440,7 +440,7 @@ export default function QueueClient() {
               </div>
 
               <div className="rounded-2xl bg-blue-50 p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-blue-500">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-700">
                   {t("queue.patientsAhead")}
                 </p>
 
@@ -450,7 +450,7 @@ export default function QueueClient() {
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
                   {t("queue.yourPosition")}
                 </p>
 
@@ -511,7 +511,7 @@ export default function QueueClient() {
                 </div>
 
                 {lastUpdated && (
-                  <p className="text-xs font-medium text-slate-400">
+                  <p className="text-xs font-semibold text-slate-600">
                     {t("queue.updated", { time: formatClock(lastUpdated) })}
                   </p>
                 )}
@@ -527,37 +527,37 @@ export default function QueueClient() {
 
             <div className="mt-5 space-y-4">
               <div className="flex justify-between border-b border-slate-100 pb-3">
-                <span className="text-sm text-slate-500">
+                <span className="text-sm font-semibold text-slate-600">
                   {t("register.departmentLabel")}
                 </span>
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-bold text-slate-900">
                   {department}
                 </span>
               </div>
 
               <div className="flex justify-between border-b border-slate-100 pb-3">
-                <span className="text-sm text-slate-500">
+                <span className="text-sm font-semibold text-slate-600">
                   {t("queue.age")}
                 </span>
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-bold text-slate-900">
                   {patient.age}
                 </span>
               </div>
 
               <div className="flex justify-between border-b border-slate-100 pb-3">
-                <span className="text-sm text-slate-500">
+                <span className="text-sm font-semibold text-slate-600">
                   {t("queue.phone")}
                 </span>
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-bold text-slate-900">
                   {patient.phone}
                 </span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-sm text-slate-500">
+                <span className="text-sm font-semibold text-slate-600">
                   {t("queue.priority")}
                 </span>
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-bold text-slate-900">
                   {priority}
                 </span>
               </div>
@@ -565,7 +565,7 @@ export default function QueueClient() {
           </div>
         </div>
 
-        <div className="mt-5 text-center text-xs text-slate-400">
+        <div className="mt-5 text-center text-xs font-medium text-slate-500">
           {t("queue.security")}
         </div>
       </div>
