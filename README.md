@@ -83,7 +83,29 @@ QueueLess provides two backend implementations. Real benchmark comparisons on lo
 - **🔒 Consistency & Safety Rules**
   - Visit state machine (waiting → called → consulting → completed) rejects invalid transitions.
   - Duplicate active registrations return the patient's existing token instead of issuing a new one.
+  - Live queue operations (call-next, room guard, wait estimates) are scoped to the hospital day — stale visits from previous days can never join or block today's queue.
   - Day-scoped analytics use real registration timestamps in hospital (IST) time.
+
+---
+
+## 🌿 Branches
+
+| Branch | Purpose | Status |
+| --- | --- | --- |
+| `main` | Stable release — deployed to production | ![Stable](https://img.shields.io/badge/status-stable-green) |
+| `testing` | Active development branch — hardcore persona-tested before merging | ![Development](https://img.shields.io/badge/status-development-blue) |
+
+Fixes land on `testing` first, are re-tested end-to-end in the browser (patient, staff, hospital and admin personas), then merge to `main`.
+
+---
+
+## 🛡️ Security, Privacy & Data Retention
+
+- **Role enforcement, twice.** Portals gate on the signed-in role and every API route re-checks it server-side (`require_role`, `require_patient_token`, `claims_may_access`) — opening a console URL directly cannot bypass it.
+- **Hardened OTP flow.** Codes expire after 5 minutes, allow 5 verification attempts, enforce a per-phone resend cooldown, and are additionally rate-limited **per client IP** (`OTP_REQUEST_IP_LIMIT` / `OTP_VERIFY_IP_LIMIT`) so rotating phone numbers cannot sidestep the limits.
+- **Privacy policy & consent.** The public OPD board shows only department/doctor/room/queue-length data — never patient names, phones, or symptoms (covered by automated tests). Patients see a consent notice at registration and the policy lives at [`/privacy`](http://localhost:3000/privacy) (English + हिन्दी), including DPDP Act 2023 rights.
+- **Data retention.** Live visit records are purged after 90 days by default (`PATIENT_RETENTION_DAYS`, `0` disables). The historical admin dataset is synthetic demo data, not real patient records.
+- **Operational notes for real deployments:** register a DLT-approved SMS sender ID and templates in India before sending real OTPs, and appoint a DPDP grievance contact.
 
 ---
 
@@ -133,7 +155,7 @@ ephemeral per-process secret, so employees are signed out whenever the API resta
   - **Framework:** FastAPI (Python 3.10+ ASGI with Uvicorn)
   - **ORM / Database:** SQLAlchemy 2.0 with PostgreSQL (Production) / SQLite (Local Fallback)
   - **Validation:** Pydantic 2.0 models
-  - **Test Suite:** 44 passing automated pytest test cases
+  - **Test Suite:** 53 passing automated pytest test cases
 
 ---
 
@@ -155,7 +177,7 @@ Hospital-Management/
 │   ├── models/            # SQLAlchemy database models (queue + demo history)
 │   ├── schemas/           # Pydantic request/response schemas
 │   ├── demo_data/         # Checked-in historical hospital CSVs
-│   ├── tests/             # Pytest API and dataset suites (44 tests)
+│   ├── tests/             # Pytest API and dataset suites (53 tests)
 │   ├── database.py        # Database connection & session management
 │   ├── import_demo_data.py# Idempotent historical dataset importer
 │   ├── main.py            # FastAPI routes, endpoints & seeding
@@ -173,6 +195,8 @@ Hospital-Management/
 │   │   ├── register/      # Patient OPD registration
 │   │   ├── queue/[id]/    # Live queue tracking & token slip
 │   │   ├── verify/        # Mobile OTP verification
+│   │   ├── privacy/       # Privacy policy & data retention (EN + हिन्दी)
+│   │   ├── opengraph-image.tsx # Generated social-share card
 │   │   └── check-token/   # Token lookup by phone number
 │   ├── lib/               # Shared utilities & API client
 │   ├── package.json       # Node dependencies
