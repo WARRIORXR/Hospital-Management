@@ -1,12 +1,17 @@
-# QueueLess 🏥
-### Intelligent Hospital Queue & Patient Flow Management System
-
 <div align="center">
 
+# 🏥 QueueLess
+
+### Intelligent Hospital Queue & Patient Flow Management System
+
+*Zero blind waiting · Priority-aware triage · Bilingual (EN / हिन्दी)*
+
 [![Live Application](https://img.shields.io/badge/Live_App-queueless--web.onrender.com-0070f3?style=for-the-badge&logo=render&logoColor=white)](https://queueless-web.onrender.com)
-[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/WARRIORXR/Hospital-Management)
-[![Render Backend](https://img.shields.io/badge/Render-FastAPI_Backend-46E3B7?style=for-the-badge&logo=render)](https://queueless-api-lvf5.onrender.com)
-[![API Documentation](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-lvf5.onrender.com/docs)
+[![API Docs](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-lvf5.onrender.com/docs)
+[![Tests](https://img.shields.io/badge/Tests-54_passing-3fb950?style=for-the-badge&logo=pytest&logoColor=white)](#3-testing--quality)
+[![Python](https://img.shields.io/badge/FastAPI-Python_3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](#-tech-stack)
+[![Rust](https://img.shields.io/badge/Axum-Rust_1.80+-DEA584?style=for-the-badge&logo=rust&logoColor=white)](#-tech-stack)
+[![Next.js](https://img.shields.io/badge/Next.js_19-React-000000?style=for-the-badge&logo=next.js&logoColor=white)](#-tech-stack)
 
 </div>
 
@@ -30,6 +35,49 @@
 - **Role-Based Portals:** Dedicated, secure consoles for Patients, Medical Staff, Hospital Managers, and System Administrators.
 - **Bilingual Accessibility:** Native one-click toggle between English and Hindi across patient-facing interfaces.
 
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    P["🧑‍🦽 Patient<br/>mobile + OTP"]
+    E["🩺 Staff · 🏥 Hospital · 📊 Admin<br/>code + PIN"]
+
+    subgraph FE["Frontend — Next.js 19 (Cloudflare Pages)"]
+        W["Bilingual Web App<br/>EN / हिन्दी"]
+    end
+
+    subgraph BE["Backend — choose one"]
+        F["🐍 FastAPI + SQLAlchemy<br/>full-featured primary API"]
+        R["⚡ Axum + Tokio + SQLx<br/>~12 MB RAM alternative"]
+    end
+
+    DB[("SQLite (dev)<br/>PostgreSQL (prod)")]
+
+    P --> W
+    E --> W
+    W -- "REST + JWT (role-checked)" --> F
+    W -. "drop-in alternative" .-> R
+    F --> DB
+    R --> DB
+```
+
+**Visit state machine** — every transition is enforced server-side, and stale
+visits from previous days can never join or block today's queue:
+
+```mermaid
+stateDiagram-v2
+    [*] --> waiting: register (daily token #)
+    waiting --> called: call next / call now
+    called --> consulting: patient entered
+    consulting --> completed: finish (frees room)
+    called --> skipped: no-show
+    skipped --> waiting: requeue
+    cancelled --> waiting: requeue
+    waiting --> cancelled: patient leaves
+    completed --> [*]
+```
 ---
 
 ### ⚡ Rust vs. Python Performance Benchmarks
@@ -257,7 +305,7 @@ Frontend application will be accessible at: `http://localhost:3000`
 
 ---
 
-### 3. Running the Backend Tests
+### 3. Testing & Quality
 
 The API ships with an end-to-end pytest suite that runs against a throwaway SQLite database.
 
@@ -381,9 +429,6 @@ QueueLess includes an infrastructure-as-code **Render Blueprint** (`render.yaml`
 - **Interactive OpenAPI / Swagger Docs:** [https://queueless-api-lvf5.onrender.com/docs](https://queueless-api-lvf5.onrender.com/docs)
 - **Render Web Frontend:** [https://queueless-web.onrender.com](https://queueless-web.onrender.com)
 - **Deployment Guide:** See [DEPLOY_RENDER.md](DEPLOY_RENDER.md).
-
-### 3. Vercel Multi-Service Deployment ⚡
-QueueLess is also configured for unified Vercel deployment with service bindings between frontend and backend via `vercel.json`.
 
 > [!NOTE]
 > The historical demo dataset is not imported automatically on first deploy. To populate a deployed environment, run
