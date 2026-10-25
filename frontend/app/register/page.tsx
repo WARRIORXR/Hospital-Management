@@ -493,6 +493,17 @@ export default function RegisterPage() {
               {t("register.linkNote")}
             </p>
 
+            {/* DPDP consent notice: registering is the consent act. */}
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-xs leading-5 text-slate-600">
+              {t("register.consent")}{" "}
+              <a
+                href="/privacy"
+                className="font-bold text-blue-600 underline hover:text-blue-700"
+              >
+                {t("register.consentLink")}
+              </a>
+            </p>
+
           </form>
 
         </div>

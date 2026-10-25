@@ -191,6 +191,9 @@ const en = {
   "register.submitting": "Creating your token...",
   "register.linkNote":
     "Your verified mobile number will be linked to this queue registration.",
+  "register.consent":
+    "By registering you agree that QueueLess may process your mobile number and visit details to run the queue, as described in the",
+  "register.consentLink": "Privacy Policy.",
   "register.security": "🔒 Your information is securely handled by QueueLess.",
   "register.errorName": "Please enter your name.",
   "register.errorAge": "Please enter your age.",
@@ -549,6 +552,9 @@ const hi: Record<TranslationKey, string> = {
   "register.submitting": "आपका टोकन बन रहा है...",
   "register.linkNote":
     "आपका सत्यापित मोबाइल नंबर इस कतार पंजीकरण से जोड़ा जाएगा।",
+  "register.consent":
+    "पंजीकरण करके आप सहमत होते हैं कि QueueLess कतार चलाने के लिए आपका मोबाइल नंबर और विज़िट विवरण संसाधित करे, जैसा कि",
+  "register.consentLink": "गोपनीयता नीति में वर्णित है।",
   "register.security": "🔒 आपकी जानकारी QueueLess द्वारा सुरक्षित रूप से संभाली जाती है।",
   "register.errorName": "कृपया अपना नाम दर्ज करें।",
   "register.errorAge": "कृपया अपनी उम्र दर्ज करें।",

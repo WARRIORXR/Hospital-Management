@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 
 import main
+from collections import defaultdict
+
 from conftest import patient_headers
 
 _ROLE_TOKENS: dict[str, str] = {}
@@ -618,3 +620,89 @@ def test_today_duplicate_registration_still_rejected(client):
     _register(client, phone="9300000040", department="dental")
     duplicate = _register(client, phone="9300000040", department="dental")
     assert duplicate.status_code == 409
+
+
+def test_full_priority_dispatch_order(client):
+    """Emergency > Elderly > Pregnant > Follow-up > Regular, tokens as tiebreak."""
+    order = ["regular", "follow_up", "pregnant", "elderly", "emergency"]
+    created = {
+        priority: _register(
+            client, phone=f"931000000{index}", department="dental", priority=priority
+        ).json()
+        for index, priority in enumerate(order)
+    }
+
+    # Elderly and pregnant share tier 2 (README: "Emergency > Elderly /
+    # Pregnant > Follow-up > Regular"); within a tier the lower token goes
+    # first, and pregnant was registered before elderly here.
+    expected = ["emergency", "pregnant", "elderly", "follow_up", "regular"]
+    for priority in expected:
+        called = client.put("/patients/call-next?department=dental")
+        assert called.status_code == 200, called.text
+        assert called.json()["id"] == created[priority]["id"]
+        # Free the room before dispatching the next priority tier.
+        assert (
+            client.put(f"/patients/{created[priority]['id']}/complete").status_code == 200
+        )
+
+
+def test_public_endpoints_never_expose_patient_pii(client):
+    """The OPD board and department list must not leak patient names,
+    phone numbers, or symptoms (Privacy Policy promise)."""
+    marker_name = "PIICheck Patient-ZQ77"
+    marker_phone = "9387770001"
+    _register(
+        client,
+        phone=marker_phone,
+        department="dental",
+        priority="regular",
+        name=marker_name,
+        symptoms="secret-marker-symptoms",
+    )
+
+    for path in ("/opds", "/departments", "/doctors"):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        body = response.text
+        assert marker_name not in body, f"{path} leaked patient name"
+        assert marker_phone not in body, f"{path} leaked patient phone"
+        assert "secret-marker-symptoms" not in body, f"{path} leaked symptoms"
+
+
+def test_anonymous_by_phone_lookup_reveals_no_record_details(client):
+    """Without an OTP session, a known phone returns only existence + id."""
+    _register(client, phone="9387770002", department="dental", name="Anonymous Check")
+
+    # The shared client defaults to a staff token; strip it to act as the public.
+    saved_auth = client.headers.get("Authorization")
+    client.headers.pop("Authorization", None)
+    try:
+        response = client.get("/patients/by-phone/9387770002")
+    finally:
+        client.headers["Authorization"] = saved_auth
+    assert response.status_code == 200
+    body = response.json()
+    assert body.get("requires_verification") is True
+    assert "name" not in body
+    assert "symptoms" not in body
+    assert "status" not in body
+
+
+def test_otp_endpoints_are_ip_throttled(client, monkeypatch):
+    """Rotating phone numbers cannot sidestep the OTP rate limits."""
+    import main
+
+    monkeypatch.setattr(main, "OTP_REQUEST_IP_LIMIT", 3)
+    monkeypatch.setattr(main, "_ip_hits", defaultdict(list))
+
+    # Different phone numbers, same IP: the per-phone cooldown must not
+    # interfere, and the 4th request from this IP is blocked.
+    for index in range(3):
+        response = client.post(
+            "/auth/request-otp", json={"phone": f"937000100{index}"}
+        )
+        assert response.status_code == 200, response.text
+
+    blocked = client.post("/auth/request-otp", json={"phone": "9370002000"})
+    assert blocked.status_code == 429
+    assert "Retry-After" in blocked.headers

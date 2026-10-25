@@ -17,6 +17,10 @@ sys.path.insert(0, str(BACKEND_DIR))
 _TEMP_DIR = tempfile.mkdtemp(prefix="queueless-tests-")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEMP_DIR) / 'test.db'}"
 os.environ["OTP_DEBUG"] = "true"
+# The suite shares one client IP; raise the per-IP OTP ceilings so only the
+# dedicated throttle test exercises the limiter.
+os.environ["OTP_REQUEST_IP_LIMIT"] = "10000"
+os.environ["OTP_VERIFY_IP_LIMIT"] = "10000"
 
 # Hermetic portal credentials: the tests must not depend on a developer's
 # local backend/.env values.
