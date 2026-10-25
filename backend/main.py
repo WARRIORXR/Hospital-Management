@@ -2,11 +2,12 @@ import json
 import os
 import re
 import secrets
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text
@@ -100,6 +101,36 @@ def seed_initial_data():
 
 
 seed_initial_data()
+
+
+def purge_expired_visits() -> int:
+    """Delete live visit records older than the retention period.
+
+    Patient phone numbers and visit details are personal data (DPDP Act 2023),
+    so they are not kept indefinitely. The demo dataset lives in its own
+    tables and is not affected. Set PATIENT_RETENTION_DAYS=0 to disable.
+    """
+    retention_days = int(os.getenv("PATIENT_RETENTION_DAYS", "90"))
+    if retention_days <= 0:
+        return 0
+
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+        days=retention_days
+    )
+    db = SessionLocal()
+    try:
+        deleted = (
+            db.query(Patient)
+            .filter(Patient.created_at < cutoff)
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+        return deleted
+    finally:
+        db.close()
+
+
+purge_expired_visits()
 
 
 PORTAL_SEEDS = (
@@ -338,6 +369,48 @@ class OtpVerify(BaseModel):
     code: str = Field(..., pattern=r"^[0-9]{6}$")
 
 
+# --------------------------------------------------
+# PER-IP OTP THROTTLE
+#
+# The OTP endpoints are anonymous, so the per-phone limits can be sidestepped
+# by rotating phone numbers. This in-memory sliding window caps requests per
+# client IP per process; it needs no extra infrastructure.
+# --------------------------------------------------
+
+OTP_REQUEST_IP_LIMIT = int(os.getenv("OTP_REQUEST_IP_LIMIT", "10"))
+OTP_VERIFY_IP_LIMIT = int(os.getenv("OTP_VERIFY_IP_LIMIT", "30"))
+OTP_IP_WINDOW_SECONDS = 600
+_ip_hits: dict[str, list[float]] = defaultdict(list)
+_ip_lock = Lock()
+
+
+def _client_ip(request: Request) -> str:
+    # Behind Render/Vercel/Nginx the real client IP arrives in
+    # X-Forwarded-For; fall back to the socket peer for direct calls.
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _enforce_ip_rate(request: Request, scope: str, limit: int) -> None:
+    key = f"{scope}:{_client_ip(request)}"
+    now = time.time()
+    with _ip_lock:
+        recent = [t for t in _ip_hits.get(key, []) if now - t < OTP_IP_WINDOW_SECONDS]
+        if len(recent) >= limit:
+            retry_after = max(
+                1, int(OTP_IP_WINDOW_SECONDS - (now - recent[0])) + 1
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Too many requests from this network. Please try again later.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        recent.append(now)
+        _ip_hits[key] = recent
+
+
 
 # --------------------------------------------------
 # HOME
@@ -363,7 +436,8 @@ def health(db: Session = Depends(get_db)):
 # --------------------------------------------------
 
 @app.post("/auth/request-otp")
-def request_otp(payload: OtpRequest):
+def request_otp(payload: OtpRequest, request: Request):
+    _enforce_ip_rate(request, "otp-request", OTP_REQUEST_IP_LIMIT)
     code, retry_after = OTP_STORE.issue(payload.phone)
 
     if code is None:
@@ -381,7 +455,8 @@ def request_otp(payload: OtpRequest):
 
 
 @app.post("/auth/verify-otp")
-def verify_otp(payload: OtpVerify):
+def verify_otp(payload: OtpVerify, request: Request):
+    _enforce_ip_rate(request, "otp-verify", OTP_VERIFY_IP_LIMIT)
     OTP_STORE.verify(payload.phone, payload.code)
     # This token is the patient's session: it unlocks registration, queue
     # lookups, and self-service cancellation for this mobile number only.

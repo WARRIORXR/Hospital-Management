@@ -381,9 +381,12 @@ export default function DoctorPortalPage() {
 
             <span className="hidden h-6 w-px bg-slate-200 sm:block" />
 
-            {/* Current Department Badge */}
+            {/* Current Department Badge: signed-in employee identity first,
+                then the department's on-duty doctor and room from the DB. */}
             <div className="hidden sm:flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-              <span>🩺 {currentOpd.doctor}</span>
+              <span>🩺 {session?.name || currentOpd.doctor}</span>
+              <span className="text-slate-400">•</span>
+              <span>{currentOpd.doctor}</span>
               <span className="text-slate-400">•</span>
               <span>{currentOpd.room}</span>
             </div>

@@ -368,7 +368,7 @@ export default function AdminDashboardPage() {
               Total Intake
             </p>
             <p className="mt-1 text-3xl font-black text-slate-900">
-              {loading ? "..." : overview?.total_patients}
+              {loading ? "Loading…" : overview?.total_patients}
             </p>
             <p className="mt-1 text-[11px] text-slate-600 font-medium">Registered today</p>
           </div>
@@ -378,7 +378,7 @@ export default function AdminDashboardPage() {
               Waiting in Queue
             </p>
             <p className="mt-1 text-3xl font-black text-blue-600">
-              {loading ? "..." : overview?.waiting_patients}
+              {loading ? "Loading…" : overview?.waiting_patients}
             </p>
             <p className="mt-1 text-[11px] text-blue-700 font-semibold">
               ~{overview?.avg_wait_minutes}m avg wait
@@ -390,7 +390,7 @@ export default function AdminDashboardPage() {
               Consulting Now
             </p>
             <p className="mt-1 text-3xl font-black text-indigo-600">
-              {loading ? "..." : overview?.consulting_patients}
+              {loading ? "Loading…" : overview?.consulting_patients}
             </p>
             <p className="mt-1 text-[11px] text-slate-600 font-medium">In doctor rooms</p>
           </div>
@@ -400,7 +400,7 @@ export default function AdminDashboardPage() {
               Completed Visits
             </p>
             <p className="mt-1 text-3xl font-black text-emerald-600">
-              {loading ? "..." : overview?.completed_patients}
+              {loading ? "Loading…" : overview?.completed_patients}
             </p>
             <p className="mt-1 text-[11px] text-slate-600 font-medium">Finished care</p>
           </div>
@@ -410,7 +410,7 @@ export default function AdminDashboardPage() {
               Priority / Special
             </p>
             <p className="mt-1 text-3xl font-black text-rose-600">
-              {loading ? "..." : overview?.emergency_cases}
+              {loading ? "Loading…" : overview?.emergency_cases}
             </p>
             <p className="mt-1 text-[11px] text-rose-600 font-semibold">Emergency / Elderly</p>
           </div>
@@ -421,7 +421,7 @@ export default function AdminDashboardPage() {
             </p>
             <p className="mt-1 text-3xl font-black text-slate-900">
               {loading
-                ? "..."
+                ? "Loading…"
                 : overview
                   ? `${overview.active_doctors}/${overview.total_doctors}`
                   : "—"}

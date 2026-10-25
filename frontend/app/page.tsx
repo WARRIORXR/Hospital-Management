@@ -276,6 +276,15 @@ export default function HomePage() {
         <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-5 text-slate-400">
           {t("sections.issuedNote")}
         </p>
+
+        <p className="mt-3 text-center text-xs">
+          <a
+            href="/privacy"
+            className="font-semibold text-slate-500 underline transition hover:text-blue-600"
+          >
+            Privacy Policy &amp; Data Retention
+          </a>
+        </p>
       </div>
     </main>
   );
