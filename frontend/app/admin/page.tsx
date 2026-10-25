@@ -256,6 +256,9 @@ export default function AdminDashboardPage() {
   }, [fetchData, fetchDemoOverview, hydrated, session, router]);
 
   const activeBottlenecks = deptLoads.filter((d) => d.bottleneck_alert);
+  // "Flow nominal" and "no bottlenecks" are conclusions — only state them
+  // once the data behind them has actually arrived.
+  const dataReady = Boolean(overview) && deptLoads.length > 0;
 
   return (
     <main className="min-h-screen bg-[#f8fafc] text-slate-900 pb-16">
@@ -287,7 +290,9 @@ export default function AdminDashboardPage() {
               />
               {activeBottlenecks.length > 0
                 ? `${activeBottlenecks.length} Bottleneck Alert(s)`
-                : "Hospital Flow Nominal"}
+                : dataReady
+                  ? "Hospital Flow Nominal"
+                  : "Checking hospital flow…"}
             </div>
           </div>
 
@@ -507,12 +512,17 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               ))
-            ) : (
+            ) : dataReady ? (
               <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs font-medium text-emerald-800">
                 <span className="text-base">✓</span>
                 <span>
                   All OPDs are operating within normal queue capacities. No bottlenecks detected. Average wait times are optimal.
                 </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs font-medium text-slate-500">
+                <span className="text-base">⏳</span>
+                <span>Loading department loads — bottleneck analysis will appear once live data arrives.</span>
               </div>
             )}
           </div>

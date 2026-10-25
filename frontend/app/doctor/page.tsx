@@ -96,8 +96,12 @@ export default function DoctorPortalPage() {
   const currentOpd = {
     id: selectedDept,
     name: departments.find(d => d.code === selectedDept)?.name || DEPARTMENTS.find(d => d.id === selectedDept)?.name || "Department",
-    doctor: assignedDoctor ? assignedDoctor.name : (DEPARTMENTS.find(d => d.id === selectedDept)?.doctor || "Attending Specialist"),
-    room: assignedDoctor ? assignedDoctor.room_number : (DEPARTMENTS.find(d => d.id === selectedDept)?.room || "OPD Room"),
+    // Doctor and room come only from the database. While the department list
+    // is loading (or a department has no doctor assigned) the header shows a
+    // neutral placeholder instead of the sample constants' names, which read
+    // as if "Dr. Sharma, Room 204" ran every department.
+    doctor: assignedDoctor?.name || "Attending Specialist",
+    room: assignedDoctor?.room_number || "OPD Room",
   };
 
   const isDoctorAvailable = assignedDoctor ? assignedDoctor.is_available : true;

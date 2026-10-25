@@ -76,7 +76,7 @@ const en = {
 
   "error.offlineTitle": "⚠️ Queue Server Offline",
   "error.offlineDescription":
-    "FastAPI backend is currently unreachable at {url}. Please start the backend server to view live data.",
+    "FastAPI backend is currently unreachable at {url}. If this is the first request in a while, the free-tier server may be waking up — wait about 50 seconds and press Refresh. Operators: check that the backend is running and redeployed.",
 
   "card.opdDept": "OPD Department",
   "card.attending": "Attending Specialist",
@@ -440,7 +440,7 @@ const hi: Record<TranslationKey, string> = {
 
   "error.offlineTitle": "⚠️ कतार सर्वर ऑफ़लाइन",
   "error.offlineDescription":
-    "FastAPI बैकएंड {url} पर उपलब्ध नहीं है। लाइव डेटा देखने के लिए कृपया बैकएंड सर्वर प्रारंभ करें।",
+    "FastAPI बैकएंड {url} पर उपलब्ध नहीं है। यदि कुछ समय से पहला अनुरोध है, तो फ्री-टियर सर्वर जाग रहा होगा — लगभग 50 सेकंड प्रतीक्षा करें और Refresh दबाएँ।",
 
   "card.opdDept": "OPD विभाग",
   "card.attending": "उपस्थित विशेषज्ञ",
