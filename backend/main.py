@@ -289,6 +289,42 @@ def require_status(patient: Patient, allowed: tuple[str, ...], action: str) -> N
         )
 
 
+def transition_status(
+    db: Session,
+    patient: Patient,
+    allowed: tuple[str, ...],
+    new_status: str,
+    action: str,
+) -> Patient:
+    """Validate then atomically flip the visit status via compare-and-set.
+
+    require_status + a plain attribute write has a read-check-write window:
+    two simultaneous requests (a double click) can both pass validation and
+    both commit. The conditional UPDATE re-checks the allowed statuses at
+    write time, so a duplicate either becomes a no-op that returns the
+    already-transitioned patient (idempotent success) or is rejected with
+    the current state.
+    """
+    require_status(patient, allowed, action)
+
+    updated = (
+        db.query(Patient)
+        .filter(
+            Patient.id == patient.id,
+            Patient.status.in_(allowed),
+            Patient.status != new_status,
+        )
+        .update({"status": new_status}, synchronize_session=False)
+    )
+    db.commit()
+    db.refresh(patient)
+
+    if updated == 0 and patient.status != new_status:
+        # Lost a race with a different transition — surface the current state.
+        require_status(patient, allowed, action)
+    return patient
+
+
 def save(db: Session, patient: Patient) -> Patient:
     db.commit()
     db.refresh(patient)
@@ -384,6 +420,12 @@ OTP_VERIFY_IP_LIMIT = int(os.getenv("OTP_VERIFY_IP_LIMIT", "30"))
 OTP_IP_WINDOW_SECONDS = 600
 _ip_hits: dict[str, list[float]] = defaultdict(list)
 _ip_lock = Lock()
+
+# Serialises the call-next room-check + dispatch so two simultaneous
+# "Call Next" requests cannot both pass the empty-room check and call two
+# patients into one room. The room guard itself stays DB-level for the
+# "Call Now" path and for multi-process deployments.
+_call_next_lock = Lock()
 
 
 def _client_ip(request: Request) -> str:
@@ -906,9 +948,7 @@ def call_patient(
             )
         )
 
-    patient.status = "called"
-
-    return save(db, patient)
+    return transition_status(db, patient, ("waiting", "called"), "called", "call")
 
 
 # --------------------------------------------------
@@ -922,12 +962,9 @@ def consult_patient(
 ):
 
     patient = get_patient_or_404(db, patient_id)
-    require_status(patient, ("called", "consulting"), "start a consultation for")
-
-    patient.status = "consulting"
-
-    return save(db, patient)
-
+    return transition_status(
+        db, patient, ("called", "consulting"), "consulting", "start a consultation for"
+    )
 
 # --------------------------------------------------
 # COMPLETE CONSULTATION
@@ -940,11 +977,7 @@ def complete_patient(
 ):
 
     patient = get_patient_or_404(db, patient_id)
-    require_status(patient, ("called", "consulting"), "complete")
-
-    patient.status = "completed"
-
-    return save(db, patient)
+    return transition_status(db, patient, ("called", "consulting"), "completed", "complete")
 
 
 # --------------------------------------------------
@@ -958,11 +991,9 @@ def skip_patient(
 ):
 
     patient = get_patient_or_404(db, patient_id)
-    require_status(patient, ("waiting", "called", "consulting"), "skip")
-
-    patient.status = "skipped"
-
-    return save(db, patient)
+    return transition_status(
+        db, patient, ("waiting", "called", "consulting"), "skipped", "skip"
+    )
 
 
 # --------------------------------------------------
@@ -979,11 +1010,7 @@ def cancel_patient(
     patient = get_patient_or_404(db, patient_id)
     if not claims_may_access(claims, patient):
         raise HTTPException(status_code=403, detail="This record belongs to a different patient.")
-    require_status(patient, ("waiting", "called"), "cancel")
-
-    patient.status = "cancelled"
-
-    return save(db, patient)
+    return transition_status(db, patient, ("waiting", "called"), "cancelled", "cancel")
 
 
 # --------------------------------------------------
@@ -1018,9 +1045,7 @@ def requeue_patient(
             )
         )
 
-    patient.status = "waiting"
-
-    return save(db, patient)
+    return transition_status(db, patient, ("skipped", "cancelled"), "waiting", "requeue")
 
 
 # --------------------------------------------------
@@ -1032,6 +1057,11 @@ def call_next_patient(
     department: str,
     db: Session = Depends(get_db)
 ):
+    with _call_next_lock:
+        return _call_next_patient_locked(department, db)
+
+
+def _call_next_patient_locked(department: str, db: Session):
     dept = department.lower()
     today_start = today_start_utc()
 
@@ -1085,13 +1115,9 @@ def call_next_patient(
     )
 
     patient = patients[0]
-
-    patient.status = "called"
-
-    db.commit()
-    db.refresh(patient)
-
-    return patient
+    return transition_status(
+        db, patient, ("waiting",), "called", "call"
+    )
 
 
 # --------------------------------------------------

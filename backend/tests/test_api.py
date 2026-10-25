@@ -748,3 +748,38 @@ def test_admin_csv_export_of_today(client, db):
 
     unauthenticated = client.get("/admin/export/today.csv")
     assert unauthenticated.status_code in (401, 403)
+
+
+def test_double_submit_transitions_are_race_safe(client):
+    """A duplicated click must never apply a transition twice or corrupt state:
+    the first request transitions, repeats are idempotent no-ops that return
+    the already-transitioned patient, and invalid repeats are rejected."""
+    patient = _register(client, phone="9360000050", department="dental").json()
+    pid = patient["id"]
+
+    # Call Now twice: both succeed (waiting -> called, then called -> called
+    # is an idempotent no-op), final status stays 'called'.
+    first = client.put(f"/patients/{pid}/call")
+    second = client.put(f"/patients/{pid}/call")
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["status"] == "called"
+
+    # Consult twice: second is a no-op.
+    assert client.put(f"/patients/{pid}/consult").status_code == 200
+    again = client.put(f"/patients/{pid}/consult")
+    assert again.status_code == 200
+    assert again.json()["status"] == "consulting"
+
+    # Complete once: room freed. A late second click is rejected with the
+    # current state instead of re-applying the transition.
+    assert client.put(f"/patients/{pid}/complete").status_code == 200
+    repeat = client.put(f"/patients/{pid}/complete")
+    assert repeat.status_code == 409
+    assert "completed" in repeat.json()["detail"]
+
+    # Completed is terminal: no skip / cancel / requeue.
+    assert client.put(f"/patients/{pid}/skip").status_code == 409
+    assert client.put(f"/patients/{pid}/cancel").status_code == 409
+    assert client.put(f"/patients/{pid}/requeue").status_code == 409
+    assert client.get(f"/patients/{pid}").json()["status"] == "completed"
