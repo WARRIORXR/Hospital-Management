@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QueueLess — main vs testing Branch Comparison</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: #f0f4f9; color: #0f172a; padding: 32px 20px; line-height: 1.5;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
+  .sub { color: #64748b; font-size: 13px; margin-top: 6px; }
+  .sub code { background: #e2e8f0; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+  h2 { font-size: 16px; font-weight: 800; margin: 34px 0 14px; color: #1e293b; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+
+  /* TL;DR cards */
+  .tldr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+  .tldr .card { text-align: center; }
+  .tldr .big { font-size: 30px; font-weight: 900; }
+  .tldr .lbl { font-size: 12px; color: #64748b; margin-top: 4px; font-weight: 600; }
+  .green { color: #059669; } .blue { color: #2563eb; } .amber { color: #d97706; }
+
+  /* Shared panel */
+  .shared {
+    background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+    border: 1px solid #a7f3d0; border-radius: 16px; padding: 20px 22px; margin-top: 20px;
+  }
+  .shared h3 { color: #065f46; font-size: 14px; font-weight: 800; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { background: #fff; border: 1px solid #a7f3d0; color: #065f46; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; }
+
+  /* Bar chart */
+  .chart { margin-top: 8px; }
+  .row { display: grid; grid-template-columns: 210px 1fr 110px; align-items: center; gap: 12px; margin: 14px 0; }
+  .row .name { font-size: 13px; font-weight: 700; color: #334155; text-align: right; }
+  .row .name small { display: block; font-weight: 500; color: #94a3b8; font-size: 11px; }
+  .bar-track { background: #f1f5f9; border-radius: 8px; height: 30px; position: relative; overflow: hidden; }
+  .bar { height: 100%; border-radius: 8px; display: flex; align-items: center; padding-left: 10px; color: #fff; font-size: 11px; font-weight: 800; white-space: nowrap; min-width: 52px; }
+  .bar.ux { background: linear-gradient(90deg, #2563eb, #3b82f6); }
+  .bar.pages { background: linear-gradient(90deg, #7c3aed, #a855f7); }
+  .bar.main { background: #e2e8f0; color: #94a3b8; }
+  .row .num { font-size: 13px; font-weight: 800; }
+  .row .num small { font-weight: 600; color: #94a3b8; }
+  .legend { display: flex; gap: 18px; margin-top: 10px; font-size: 12px; color: #475569; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+
+  /* Matrix */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: #64748b; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+  td.yes { color: #059669; font-weight: 800; }
+  td.no { color: #cbd5e1; font-weight: 800; }
+  td small { font-weight: 500; color: #94a3b8; }
+
+  /* Flow diagram */
+  .flow { display: flex; align-items: stretch; gap: 0; margin-top: 16px; }
+  .lane { flex: 1; border-radius: 14px; padding: 16px; }
+  .lane.main { background: #f8fafc; border: 2px solid #cbd5e1; }
+  .lane.testing { background: #eff6ff; border: 2px solid #bfdbfe; }
+  .lane h4 { font-size: 13px; font-weight: 900; }
+  .lane .c { font-size: 11px; color: #94a3b8; font-weight: 600; }
+  .commit { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: 12px; font-weight: 600; color: #334155; }
+  .commit small { display: block; color: #94a3b8; font-weight: 500; }
+  .commit.only { border-color: #93c5fd; background: #dbeafe; color: #1e40af; }
+  .arrow { display: flex; align-items: center; padding: 0 10px; color: #94a3b8; font-size: 22px; font-weight: 300; }
+  .note { font-size: 12px; color: #64748b; margin-top: 10px; }
+  .foot { text-align: center; font-size: 11px; color: #94a3b8; margin: 30px 0 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>🌿 main vs testing — what actually differs</h1>
+  <div class="sub">
+    Compared <code>main</code> @ <code>aaca75b</code> against <code>testing</code> @ <code>eca47e6</code> ·
+    generated 26 Oct 2026 · content diff: 9 files, <b style="color:#2563eb">+201 / −17</b> lines
+  </div>
+
+  <div class="tldr">
+    <div class="card">
+      <div class="big green">100%</div>
+      <div class="lbl">Backend code &amp; 54 tests — <b>identical</b> in both branches</div>
+    </div>
+    <div class="card">
+      <div class="big blue">+59 / −17</div>
+      <div class="lbl">Lines only in <b>testing</b>: patient &amp; staff UX fixes (5 files)</div>
+    </div>
+    <div class="card">
+      <div class="big amber">+142</div>
+      <div class="lbl">Lines only in <b>testing</b>: GitHub Pages live-site plumbing (4 files)</div>
+    </div>
+  </div>
+
+  <div class="shared">
+    <h3>✅ Identical in both branches (shared via cherry-picks)</h3>
+    <div class="chips">
+      <span class="chip">Ghost-visit day-scope fixes (critical)</span>
+      <span class="chip">Queue-page false-error fix</span>
+      <span class="chip">Per-IP OTP throttle</span>
+      <span class="chip">/privacy policy (EN+हिन्दी)</span>
+      <span class="chip">Consent notice</span>
+      <span class="chip">90-day data retention</span>
+      <span class="chip">OG / social metadata</span>
+      <span class="chip">CORS for github.io</span>
+      <span class="chip">54 pytest passing</span>
+      <span class="chip">Updated README</span>
+    </div>
+  </div>
+
+  <h2>📊 Lines changed — what only <span style="color:#2563eb">testing</span> adds</h2>
+  <div class="card chart">
+    <div class="row">
+      <div class="name">Patient return-visit fix<small>lib/auth.ts · dead-end fix</small></div>
+      <div class="bar-track"><div class="bar ux" style="width:11%">+8 −3</div></div>
+      <div class="num">+8 <small>−3</small></div>
+    </div>
+    <div class="row">
+      <div class="name">Enter-to-submit OTP forms<small>verify/page.tsx</small></div>
+      <div class="bar-track"><div class="bar ux" style="width:38%">+30 −8</div></div>
+      <div class="num">+30 <small>−8</small></div>
+    </div>
+    <div class="row">
+      <div class="name">Honest staff metrics<small>doctor/page.tsx · Treated vs Resolved</small></div>
+      <div class="bar-track"><div class="bar ux" style="width:11.5%">+9 −5</div></div>
+      <div class="num">+9 <small>−5</small></div>
+    </div>
+    <div class="row">
+      <div class="name">Styled age validation<small>register/page.tsx · noValidate</small></div>
+      <div class="bar-track"><div class="bar ux" style="width:5%">+4 −1</div></div>
+      <div class="num">+4 <small>−1</small></div>
+    </div>
+    <div class="row">
+      <div class="name">Check-token Enter submit<small>check-token/page.tsx</small></div>
+      <div class="bar-track"><div class="bar ux" style="width:10%">+8 −0</div></div>
+      <div class="num">+8 <small>−0</small></div>
+    </div>
+    <div class="row">
+      <div class="name">Pages deploy workflow<small>.github/workflows (CI)</small></div>
+      <div class="bar-track"><div class="bar pages" style="width:86%">+68</div></div>
+      <div class="num">+68</div>
+    </div>
+    <div class="row">
+      <div class="name">Deep-link 404 fallback<small>not-found.tsx · /queue/42 works on Pages</small></div>
+      <div class="bar-track"><div class="bar pages" style="width:80%">+63</div></div>
+      <div class="num">+63</div>
+    </div>
+    <div class="row">
+      <div class="name">Pages basePath config<small>next.config.ts</small></div>
+      <div class="bar-track"><div class="bar pages" style="width:11%">+9</div></div>
+      <div class="num">+9</div>
+    </div>
+    <div class="row">
+      <div class="name">OG image static export<small>opengraph-image.tsx</small></div>
+      <div class="bar-track"><div class="bar pages" style="width:3%; min-width:52px">+2</div></div>
+      <div class="num">+2</div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#3b82f6"></span>Persona UX fixes — commit <b>862c554</b></span>
+      <span><span class="dot" style="background:#a855f7"></span>GitHub Pages live-site plumbing — commit <b>f4f58f3</b></span>
+      <span><span class="dot" style="background:#e2e8f0"></span>main adds nothing extra (its 3 commits are cherry-picked copies of testing's work)</span>
+    </div>
+  </div>
+
+  <h2>🧩 Feature matrix</h2>
+  <div class="card" style="padding:6px 10px">
+    <table>
+      <tr><th>Capability</th><th>main (stable)</th><th>testing (development · live on Pages)</th></tr>
+      <tr><td>All bug fixes, security hardening, privacy policy, 54 tests</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><td>Returning patient can re-register (dead-end fix)</td><td class="no">✗</td><td class="yes">✓</td></tr>
+      <tr><td>Enter submits mobile / OTP / check-token forms</td><td class="no">✗</td><td class="yes">✓</td></tr>
+      <tr><td>Styled bilingual age-validation errors</td><td class="no">✗</td><td class="yes">✓</td></tr>
+      <tr><td>Honest “Treated” metric + “Resolved Today” tab</td><td class="no">✗</td><td class="yes">✓</td></tr>
+      <tr><td>Auto-deployed live site on GitHub Pages</td><td class="no">✗</td><td class="yes">✓ <small>warriorxr.github.io/Hospital-Management</small></td></tr>
+      <tr><td>Deep links (/queue/42) work on static hosting</td><td class="no">✗</td><td class="yes">✓</td></tr>
+    </table>
+  </div>
+
+  <h2>🔀 Commit lineage</h2>
+  <div class="card">
+    <div class="flow">
+      <div class="lane main">
+        <h4>main — stable</h4>
+        <div class="c">aaca75b (HEAD)</div>
+        <div class="commit">📄 README + CORS<small>aaca75b ← cherry-pick of eca47e6</small></div>
+        <div class="commit">📄 README security section<small>70ae05a ← cherry-pick of 07c8507</small></div>
+        <div class="commit">🛡️ Review fixes<small>81a5c3f ← cherry-pick of 9bd7cf8</small></div>
+        <div class="commit">🐛 Ghost-visit day-scope fix<small>7196630 — original</small></div>
+      </div>
+      <div class="arrow">⇄</div>
+      <div class="lane testing">
+        <h4>testing — development (live on GitHub Pages)</h4>
+        <div class="c">eca47e6 (HEAD, default branch)</div>
+        <div class="commit only">🔗 Live-site docs + Pages CORS<small>eca47e6</small></div>
+        <div class="commit only">🚀 GitHub Pages deploy workflow<small>f4f58f3</small></div>
+        <div class="commit">📄 README security section<small>07c8507</small></div>
+        <div class="commit">🛡️ Review fixes<small>9bd7cf8</small></div>
+        <div class="commit only">✨ Persona UX fixes<small>862c554</small></div>
+        <div class="commit">🐛 Ghost-visit day-scope fix<small>7196630</small></div>
+      </div>
+    </div>
+    <p class="note">
+      <b>Blue commits</b> exist only on <b>testing</b>. Everything else was copied to main by cherry-pick, so both branches share the same backend and tests.
+      Merging <code>testing → main</code> would bring just the UX fixes and the Pages plumbing.
+    </p>
+  </div>
+
+  <p class="foot">Generated from git — QueueLess branch comparison · 26 Oct 2026</p>
+</div>
+</body>
+</html>

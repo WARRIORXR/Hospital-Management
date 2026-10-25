@@ -7,7 +7,6 @@
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/WARRIORXR/Hospital-Management)
 [![Render Backend](https://img.shields.io/badge/Render-FastAPI_Backend-46E3B7?style=for-the-badge&logo=render)](https://queueless-api-lvf5.onrender.com)
 [![API Documentation](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-lvf5.onrender.com/docs)
-[![Live Testing Site](https://img.shields.io/badge/Live_Testing_Site-github.io-blue?style=for-the-badge&logo=github)](https://warriorxr.github.io/Hospital-Management/)
 
 </div>
 
@@ -86,22 +85,6 @@ QueueLess provides two backend implementations. Real benchmark comparisons on lo
   - Duplicate active registrations return the patient's existing token instead of issuing a new one.
   - Live queue operations (call-next, room guard, wait estimates) are scoped to the hospital day — stale visits from previous days can never join or block today's queue.
   - Day-scoped analytics use real registration timestamps in hospital (IST) time.
-
----
-
-## 🌿 Branches
-
-| Branch | Purpose | Status |
-| --- | --- | --- |
-| `main` | Stable release — deployed to production | ![Stable](https://img.shields.io/badge/status-stable-green) |
-| `testing` | Active development branch — hardcore persona-tested before merging. **Live site:** [warriorxr.github.io/Hospital-Management](https://warriorxr.github.io/Hospital-Management/) | ![Development](https://img.shields.io/badge/status-development-blue) |
-
-Fixes land on `testing` first, are re-tested end-to-end in the browser (patient, staff, hospital and admin personas), then merge to `main`.
-
-Every push to `testing` rebuilds the frontend as a static export and publishes it to **GitHub Pages** automatically (workflow: `.github/workflows/deploy-testing-pages.yml`). The Pages site is fully static and talks to the deployed Render API, so:
-
-- Real queue/OTP flows need the Render service awake — the free tier cold-starts after inactivity (first request can take ~50s).
-- After changing backend code, redeploy the Render service too: the static site can only be as current as the API it calls (an outdated backend will pre-date newer endpoints and CORS origins, including the Pages origin `https://warriorxr.github.io`, which is now in the default allowlist).
 
 ---
 
