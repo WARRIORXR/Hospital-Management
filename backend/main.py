@@ -502,12 +502,14 @@ def create_patient(
     if not 1 <= patient.age <= 120:
         raise HTTPException(status_code=422, detail="Age must be between 1 and 120.")
 
-    # A patient may only hold one live token at a time.
+    # A patient may only hold one live token at a time. Visits from previous
+    # hospital days are historical — they must never block today's registration.
     active_visit = (
         db.query(Patient)
         .filter(
             Patient.phone == patient.phone,
-            Patient.status.in_(ACTIVE_STATUSES)
+            Patient.status.in_(ACTIVE_STATUSES),
+            Patient.created_at >= today_start_utc(),
         )
         .order_by(Patient.id.desc())
         .first()
@@ -726,12 +728,15 @@ def get_patient_by_phone(
     db: Session = Depends(get_db)
 ):
 
-    # Prefer a visit that is still live over historical records.
+    # Prefer a visit that is still live over historical records. "Live" means
+    # today's hospital day — a stuck waiting/called row from a previous day
+    # must not hijack the patient's session or block a new registration.
     patient = (
         db.query(Patient)
         .filter(
             Patient.phone == phone,
-            Patient.status.in_(ACTIVE_STATUSES)
+            Patient.status.in_(ACTIVE_STATUSES),
+            Patient.created_at >= today_start_utc(),
         )
         .order_by(Patient.id.desc())
         .first()
@@ -801,12 +806,15 @@ def call_patient(
     patient = get_patient_or_404(db, patient_id)
     require_status(patient, ("waiting", "called"), "call")
 
-    # Only one patient may occupy the consultation room at a time.
+    # Only one patient may occupy the consultation room at a time. Room state
+    # is day-scoped: a stuck called/consulting row from a previous hospital
+    # day is historical and must not block today's queue.
     room_owner = (
         db.query(Patient)
         .filter(
             Patient.department == patient.department,
             Patient.status.in_(("called", "consulting")),
+            Patient.created_at >= today_start_utc(),
             Patient.id != patient.id
         )
         .first()
@@ -948,12 +956,18 @@ def call_next_patient(
     db: Session = Depends(get_db)
 ):
     dept = department.lower()
+    today_start = today_start_utc()
 
+    # Room occupancy is day-scoped: a called/consulting row left over from a
+    # previous hospital day is historical and must not block today's queue
+    # (it is also invisible in the today-scoped staff console, so a blocking
+    # ghost could otherwise never be cleared).
     room_owner = (
         db.query(Patient)
         .filter(
             Patient.department == dept,
-            Patient.status.in_(("called", "consulting"))
+            Patient.status.in_(("called", "consulting")),
+            Patient.created_at >= today_start,
         )
         .order_by(Patient.id.desc())
         .first()
@@ -972,7 +986,8 @@ def call_next_patient(
         db.query(Patient)
         .filter(
             Patient.department == dept,
-            Patient.status == "waiting"
+            Patient.status == "waiting",
+            Patient.created_at >= today_start,
         )
         .all()
     )
@@ -1028,12 +1043,15 @@ def get_queue_status(
     if not claims_may_access(claims, patient):
         raise HTTPException(status_code=403, detail="This record belongs to a different patient.")
 
-    # Find patient currently being served
+    # Find patient currently being served. Day-scoped so stale called/
+    # consulting rows from previous hospital days don't bleed into today's
+    # wait estimates.
     current_patient = (
         db.query(Patient)
         .filter(
             Patient.department == patient.department,
-            Patient.status.in_(["consulting", "called"])
+            Patient.status.in_(["consulting", "called"]),
+            Patient.created_at >= today_start_utc(),
         )
         .order_by(
             Patient.status.desc(),
@@ -1078,12 +1096,14 @@ def get_queue_status(
             "message": f"Your visit is currently {patient.status}."
         }
 
-    # If waiting, calculate position
+    # If waiting, calculate position. Day-scoped: only today's waiting visits
+    # participate in today's queue ordering.
     waiting_patients = (
         db.query(Patient)
         .filter(
             Patient.department == patient.department,
-            Patient.status == "waiting"
+            Patient.status == "waiting",
+            Patient.created_at >= today_start_utc(),
         )
         .all()
     )

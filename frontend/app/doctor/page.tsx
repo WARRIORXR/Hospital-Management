@@ -201,6 +201,10 @@ export default function DoctorPortalPage() {
       stop();
       document.removeEventListener("visibilitychange", onVisibilityChange);
       abortRef.current?.abort();
+      // The aborted request will never settle, so clear the guard or the
+      // next effect run (StrictMode remount / department switch) is skipped
+      // and the console shows stale data until the next poll.
+      inFlight.current = false;
     };
   }, [fetchDepartmentPatients, hydrated, session, router]);
 

@@ -370,7 +370,11 @@ export default function HospitalPage() {
                           <div>
                             <p className="text-sm font-bold text-slate-900">{doc.name}</p>
                             <p className="text-xs text-slate-500">
-                              {doc.specialization || "—"} · {t("hospital.room")} {doc.room_number}
+                              {doc.specialization || "—"} ·{" "}
+                              {/* Seeded rooms already carry the "Room" prefix; only add it when missing. */}
+                              {doc.room_number.toLowerCase().startsWith("room")
+                                ? doc.room_number
+                                : `${t("hospital.room")} ${doc.room_number}`}
                             </p>
                             <span
                               className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${

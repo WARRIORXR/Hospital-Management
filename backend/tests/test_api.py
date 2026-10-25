@@ -540,3 +540,81 @@ def test_api_prefix_routing(client):
     assert prefixed_depts.status_code == 200
     assert len(prefixed_depts.json()) == len(direct_depts.json())
 
+
+
+# --------------------------------------------------
+# CROSS-DAY GHOST REGRESSION TESTS
+#
+# A visit left in an active state (waiting/called/consulting) from a previous
+# hospital day is historical. It must never join today's queue, block the
+# consultation room, or prevent the phone from registering a fresh token.
+# --------------------------------------------------
+
+
+def _backdate(db, patient_id: int, days: int = 1) -> None:
+    """Move one visit's created_at into a previous hospital day."""
+    row = (
+        db.query(main.Patient).filter(main.Patient.id == patient_id).first()
+    )
+    assert row is not None
+    row.created_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    db.commit()
+
+
+def test_yesterday_waiting_ghost_is_never_called_by_call_next(client, db):
+    ghost = _register(client, phone="9300000001", department="dental", priority="emergency").json()
+    _backdate(db, ghost["id"])
+
+    today = _register(client, phone="9300000002", department="dental", priority="regular").json()
+
+    called = client.put("/patients/call-next?department=dental")
+    assert called.status_code == 200, called.text
+    assert called.json()["id"] == today["id"]
+
+
+def test_yesterday_called_ghost_does_not_block_the_room(client, db):
+    # Exactly the production jam: the ghost was called (or left called) the
+    # previous day and the room guard must not treat it as today's occupant.
+    ghost = _register(client, phone="9300000010", department="dental").json()
+    called = client.put(f"/patients/{ghost['id']}/call")
+    assert called.status_code == 200, called.text
+    _backdate(db, ghost["id"])
+
+    today = _register(client, phone="9300000011", department="dental").json()
+
+    next_called = client.put("/patients/call-next?department=dental")
+    assert next_called.status_code == 200, next_called.text
+    assert next_called.json()["id"] == today["id"]
+
+    # The explicitly-called patient (from today) still respects the guard.
+    conflict = client.put(f"/patients/{ghost['id']}/call")
+    assert conflict.status_code == 409
+
+
+def test_yesterday_active_visit_does_not_block_registration(client, db):
+    ghost = _register(client, phone="9300000020", department="dental").json()
+    _backdate(db, ghost["id"])
+
+    fresh = _register(client, phone="9300000020", department="dental")
+    assert fresh.status_code == 201, fresh.text
+    assert fresh.json()["id"] != ghost["id"]
+    assert fresh.json()["token_number"] == 1
+
+
+def test_queue_status_ignores_yesterday_ghosts(client, db):
+    ghost = _register(client, phone="9300000030", department="dental").json()
+    _backdate(db, ghost["id"])
+
+    first = _register(client, phone="9300000031", department="dental").json()
+
+    status = client.get(f"/patients/{first['id']}/queue-status").json()
+    assert status["status"] == "waiting"
+    assert status["queue_position"] == 1
+    assert status["patients_ahead"] == 0
+
+
+def test_today_duplicate_registration_still_rejected(client):
+    # The one-live-token rule still applies within the same hospital day.
+    _register(client, phone="9300000040", department="dental")
+    duplicate = _register(client, phone="9300000040", department="dental")
+    assert duplicate.status_code == 409

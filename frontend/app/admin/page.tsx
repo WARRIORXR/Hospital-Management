@@ -420,7 +420,11 @@ export default function AdminDashboardPage() {
               Physicians Active
             </p>
             <p className="mt-1 text-3xl font-black text-slate-900">
-              {loading ? "..." : `${overview?.active_doctors}/${overview?.total_doctors}`}
+              {loading
+                ? "..."
+                : overview
+                  ? `${overview.active_doctors}/${overview.total_doctors}`
+                  : "—"}
             </p>
             <p className="mt-1 text-[11px] text-emerald-700 font-semibold">On duty</p>
           </div>

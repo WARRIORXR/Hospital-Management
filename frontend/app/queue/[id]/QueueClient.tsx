@@ -138,6 +138,10 @@ export default function QueueClient() {
       stop();
       document.removeEventListener("visibilitychange", onVisibilityChange);
       abortRef.current?.abort();
+      // The aborted request will never settle, so clear the guard or the
+      // remount's fetch (StrictMode) is skipped and the page shows a false
+      // "patient not found" error until the next poll.
+      inFlight.current = false;
     };
   }, [fetchQueueData]);
 
