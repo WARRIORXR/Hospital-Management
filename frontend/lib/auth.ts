@@ -197,8 +197,10 @@ export async function patientFetch(path: string, init: RequestInit = {}): Promis
 /**
  * Where a patient with a verified session should land next.
  *
- * Opens their live/current token when the number already has a visit, and
- * falls back to the registration form for a first-time patient.
+ * Opens their live token when the number holds an ACTIVE visit (waiting,
+ * called, consulting) and falls back to the registration form otherwise.
+ * A terminal visit (completed, cancelled, skipped) must never trap the
+ * patient on an old token page — they came back for a new token.
  */
 export async function patientLandingRoute(phone: string): Promise<string> {
   try {
@@ -210,7 +212,10 @@ export async function patientLandingRoute(phone: string): Promise<string> {
         record.requires_verification !== true &&
         typeof record.id === "number"
       ) {
-        return `/queue/${record.id}`;
+        const status = String(record.status ?? "").toLowerCase();
+        if (["waiting", "called", "consulting"].includes(status)) {
+          return `/queue/${record.id}`;
+        }
       }
     }
   } catch {

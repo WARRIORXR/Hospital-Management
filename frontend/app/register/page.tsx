@@ -231,10 +231,13 @@ export default function RegisterPage() {
 
           </div>
 
-          {/* FORM */}
+          {/* FORM — noValidate keeps the styled bilingual inline errors as the
+              single feedback channel (the number input's native min/max bubble
+              would otherwise pre-empt them in the browser's language). */}
 
           <form
             onSubmit={handleSubmit}
+            noValidate
             className="space-y-6 p-6 sm:p-8"
           >
 

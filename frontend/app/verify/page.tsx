@@ -152,7 +152,12 @@ function VerifyFlow() {
 
           <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
             {!otpSent && (
-              <div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void requestOtp();
+                }}
+              >
                 <label
                   htmlFor="phone"
                   className="mb-2 block text-sm font-bold text-slate-900"
@@ -173,6 +178,14 @@ function VerifyFlow() {
                     onChange={(e) =>
                       setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
                     }
+                    onKeyDown={(e) => {
+                      // Belt-and-suspenders: some browsers/embedded views skip
+                      // implicit form submission on Enter.
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.form?.requestSubmit();
+                      }
+                    }}
                     maxLength={10}
                     placeholder="9876543210"
                     className="w-full bg-transparent px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-500 outline-none"
@@ -184,18 +197,22 @@ function VerifyFlow() {
                 </p>
 
                 <button
-                  type="button"
-                  onClick={requestOtp}
+                  type="submit"
                   disabled={sending}
                   className="mt-6 w-full rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {sending ? t("verify.sending") : t("verify.sendOtp")}
                 </button>
-              </div>
+              </form>
             )}
 
             {otpSent && (
-              <div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleVerifyOtp();
+                }}
+              >
                 <div className="mb-6 rounded-xl bg-blue-50 p-4">
                   <p className="text-sm font-semibold text-blue-700">
                     {t("verify.sentTo", { phone })}
@@ -227,14 +244,19 @@ function VerifyFlow() {
                   onChange={(e) =>
                     setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }}
                   maxLength={6}
                   placeholder={t("verify.otpPlaceholder")}
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] text-slate-900 placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
 
                 <button
-                  type="button"
-                  onClick={handleVerifyOtp}
+                  type="submit"
                   disabled={verifying}
                   className="mt-6 w-full rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -266,7 +288,7 @@ function VerifyFlow() {
                 >
                   {t("verify.changeNumber")}
                 </button>
-              </div>
+              </form>
             )}
 
             {error && (
