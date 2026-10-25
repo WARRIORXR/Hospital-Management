@@ -706,3 +706,17 @@ def test_otp_endpoints_are_ip_throttled(client, monkeypatch):
     blocked = client.post("/auth/request-otp", json={"phone": "9370002000"})
     assert blocked.status_code == 429
     assert "Retry-After" in blocked.headers
+
+
+def test_cors_allows_github_pages_origin(client):
+    """The GitHub Pages project site (testing branch) must be able to call
+    the API — preflight from that origin returns the allow-origin header."""
+    response = client.options(
+        "/opds",
+        headers={
+            "Origin": "https://warriorxr.github.io",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://warriorxr.github.io"

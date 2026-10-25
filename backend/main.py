@@ -201,12 +201,14 @@ frontend_origins.update({
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://queueless.pages.dev",
+    # GitHub Pages project site for the testing branch.
+    "https://warriorxr.github.io",
 })
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(frontend_origins),
-    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)?(pages\.dev|vercel\.app)$",
+    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)?(pages\.dev|vercel\.app|github\.io)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
