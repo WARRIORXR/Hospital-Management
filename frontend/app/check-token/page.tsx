@@ -131,6 +131,14 @@ export default function CheckTokenPage() {
                     setError("");
                     setNotFound(false);
                   }}
+                  onKeyDown={(e) => {
+                    // Belt-and-suspenders: some browsers/embedded views skip
+                    // implicit form submission on Enter.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }}
                   placeholder="9876543210"
                   className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-14 pr-4 text-sm font-semibold text-slate-900 placeholder:text-slate-500 focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
                   disabled={loading}

@@ -229,7 +229,11 @@ export default function DoctorPortalPage() {
       return a.token_number - b.token_number;
     });
 
-  const completedPatients = patients.filter(
+  // "Treated" counts finished consultations only — skipped and cancelled
+  // visits are resolved, not treated, and must not inflate the metric.
+  const completedPatients = patients.filter((p) => p.status === "completed");
+
+  const resolvedPatients = patients.filter(
     (p) => p.status === "completed" || p.status === "skipped" || p.status === "cancelled"
   );
 
@@ -681,7 +685,7 @@ export default function DoctorPortalPage() {
                       : "border-transparent text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  Completed Today ({completedPatients.length})
+                  Resolved Today ({resolvedPatients.length})
                 </button>
               </div>
 
@@ -754,16 +758,16 @@ export default function DoctorPortalPage() {
                 </div>
               )}
 
-              {/* TAB CONTENT: HISTORY */}
+              {/* TAB CONTENT: RESOLVED HISTORY */}
               {activeTab === "history" && (
                 <div className="p-6">
-                  {completedPatients.length === 0 ? (
+                  {resolvedPatients.length === 0 ? (
                     <div className="py-12 text-center text-xs text-slate-400">
                       No patients treated yet today.
                     </div>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {completedPatients.map((patient) => (
+                      {resolvedPatients.map((patient) => (
                         <div
                           key={patient.id}
                           className="py-3.5 flex items-center justify-between"
