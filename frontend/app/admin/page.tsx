@@ -307,6 +307,31 @@ export default function AdminDashboardPage() {
               {isRefreshing ? "Refreshing..." : "↻ Refresh"}
             </button>
 
+            <button
+              onClick={async () => {
+                try {
+                  // Authenticated download: fetch with the portal token, then
+                  // hand the CSV to the browser as a file.
+                  const response = await portalFetch("/admin/export/today.csv");
+                  if (!response.ok) throw new Error(`Export failed (${response.status})`);
+                  const blob = await response.blob();
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = `queueless-today-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error("CSV export failed:", err);
+                }
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+            >
+              ⬇ Export today (CSV)
+            </button>
+
             <Link
               href="/doctor"
               className="rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition"

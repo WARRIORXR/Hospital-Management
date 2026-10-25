@@ -720,3 +720,31 @@ def test_cors_allows_github_pages_origin(client):
     )
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "https://warriorxr.github.io"
+
+
+def test_admin_csv_export_of_today(client, db):
+    """Admins can download today's live queue as CSV; staff cannot."""
+    _register(
+        client,
+        phone="9360000001",
+        department="dental",
+        name="Export Check, Jr.",
+        priority="elderly",
+        symptoms="=HYPERLINK(\"http://evil.example\", \"click\")",
+    )
+
+    response = client.get("/admin/export/today.csv", headers=_role_header(client, "admin"))
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in response.headers["content-disposition"]
+
+    body = response.text
+    assert "token_number,department,patient_name" in body
+    assert "Export Check, Jr." in body          # comma escaped by quoting
+    # A cell starting with '=' gets a leading apostrophe so spreadsheet apps
+    # cannot execute it as a formula (CSV injection guard).
+    assert "'=HYPERLINK" in body
+    assert "elderly" in body
+
+    unauthenticated = client.get("/admin/export/today.csv")
+    assert unauthenticated.status_code in (401, 403)

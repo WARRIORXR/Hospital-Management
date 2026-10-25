@@ -254,6 +254,9 @@ const en = {
   "queue.registrationDetails": "Registration Details",
   "queue.age": "Age",
   "queue.phone": "Phone",
+  "queue.share": "📤 Share on WhatsApp",
+  "queue.shareMessage":
+    "🏥 QueueLess — my OPD token #{token} ({department}). Position: {position} · approx wait: {wait} min. Track live: {link}",
   "queue.security": "🔒 Your queue information is securely handled by QueueLess.",
   "queue.leave": "Leave queue",
   "queue.cancelQuestion": "Cancel this token?",
@@ -615,6 +618,9 @@ const hi: Record<TranslationKey, string> = {
   "queue.registrationDetails": "पंजीकरण विवरण",
   "queue.age": "उम्र",
   "queue.phone": "फ़ोन",
+  "queue.share": "📤 व्हाट्सऐप पर साझा करें",
+  "queue.shareMessage":
+    "🏥 QueueLess — मेरा OPD टोकन #{token} ({department})। स्थिति: {position} · अनुमानित प्रतीक्षा: {wait} मिनट। लाइव ट्रैक करें: {link}",
   "queue.security": "🔒 आपकी कतार जानकारी QueueLess द्वारा सुरक्षित रूप से संभाली जाती है।",
   "queue.leave": "कतार छोड़ें",
   "queue.cancelQuestion": "यह टोकन रद्द करें?",

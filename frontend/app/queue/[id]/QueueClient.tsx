@@ -331,6 +331,31 @@ export default function QueueClient() {
               {t("common.print")}
             </button>
 
+            {patient.status === "waiting" && queueStatus && (
+              <button
+                type="button"
+                onClick={() => {
+                  const message = t("queue.shareMessage", {
+                    token: String(patient.token_number),
+                    department,
+                    position: queueStatus.queue_position
+                      ? `#${queueStatus.queue_position}`
+                      : "—",
+                    wait: String(queueStatus.estimated_wait_minutes ?? 0),
+                    link: window.location.href,
+                  });
+                  window.open(
+                    `https://wa.me/?text=${encodeURIComponent(message)}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  );
+                }}
+                className="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50"
+              >
+                {t("queue.share")}
+              </button>
+            )}
+
             {canLeaveQueue && !confirmingLeave && (
               <button
                 type="button"

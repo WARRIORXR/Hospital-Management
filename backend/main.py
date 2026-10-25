@@ -1506,6 +1506,59 @@ def get_admin_analytics(db: Session = Depends(get_db)):
 
 
 # --------------------------------------------------
+# TODAY'S QUEUE EXPORT (admin)
+# --------------------------------------------------
+
+def _csv_cell(value) -> str:
+    """Escape a single CSV cell (quotes, commas, newlines, formula injection)."""
+    text = "" if value is None else str(value)
+    if text.startswith(("=", "+", "-", "@")):
+        text = "'" + text
+    if any(ch in text for ch in (",", '"', "\n", "\r")):
+        text = '"' + text.replace('"', '""') + '"'
+    return text
+
+
+@app.get("/admin/export/today.csv", dependencies=[Depends(require_role("admin"))])
+def export_today_csv(db: Session = Depends(get_db)):
+    """Download today's live queue as CSV for records and reporting."""
+    rows = (
+        db.query(Patient)
+        .filter(Patient.created_at >= today_start_utc())
+        .all()
+    )
+    rows.sort(key=lambda p: (p.department, p.token_number))
+
+    import csv as _csv
+    import io as _io
+
+    buffer = _io.StringIO()
+    writer = _csv.writer(buffer)
+    writer.writerow([
+        "token_number", "department", "patient_name", "age", "phone",
+        "priority", "status", "symptoms", "registered_at_ist",
+    ])
+    ist = HOSPITAL_TIMEZONE
+    for row in rows:
+        registered = row.created_at.replace(tzinfo=timezone.utc).astimezone(ist) if row.created_at else None
+        writer.writerow([
+            _csv_cell(row.token_number), _csv_cell(row.department),
+            _csv_cell(row.name), _csv_cell(row.age), _csv_cell(row.phone),
+            _csv_cell(row.priority), _csv_cell(row.status),
+            _csv_cell(row.symptoms or ""),
+            _csv_cell(registered.strftime("%Y-%m-%d %H:%M:%S") if registered else ""),
+        ])
+
+    filename = f"queueless-today-{datetime.now(ist).strftime('%Y-%m-%d')}.csv"
+    from fastapi import Response as FastAPIResponse
+    return FastAPIResponse(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# --------------------------------------------------
 # HISTORICAL DEMO DATASET (admin analytics)
 # --------------------------------------------------
 
