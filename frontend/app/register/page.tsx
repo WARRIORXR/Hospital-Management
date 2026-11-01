@@ -10,12 +10,12 @@ export default function RegisterPage() {
   const router = useRouter();
   const { t } = useI18n();
 
-  const [verifiedPhone] = useState(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("verifiedPhone") || "";
-    }
-    return "";
-  });
+  // Hydrate-safe: sessionStorage is unavailable during SSR, so reading it in a
+  // useState initializer makes the server HTML ("") differ from the client's
+  // first render (the stored phone) and React regenerates the whole tree.
+  // Start empty and adopt the value inside the verification effect below —
+  // it already gates the page on `phoneVerified` anyway.
+  const [verifiedPhone, setVerifiedPhone] = useState("");
 
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -47,6 +47,8 @@ export default function RegisterPage() {
       router.replace("/verify");
       return;
     }
+
+    setVerifiedPhone(phone);
   }, [router]);
 
   // --------------------------------------------------

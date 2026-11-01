@@ -245,6 +245,10 @@ export default function Home() {
       stop();
       document.removeEventListener("visibilitychange", onVisibilityChange);
       abortRef.current?.abort();
+      // The aborted request will never settle, so clear the guard or the
+      // StrictMode remount's fetch is skipped and the public board renders
+      // "no OPD active" with zero stats until the first poll tick (8 s).
+      inFlight.current = false;
     };
   }, [fetchOpds]);
 

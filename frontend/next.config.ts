@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
   ...(isGithubPages
     ? { basePath: `/${REPO_NAME}`, trailingSlash: true }
     : {}),
+  // The dev docs and .env.local reference the API and app via 127.0.0.1.
+  // Without this, Next 16 blocks the /_next/hmr socket as "cross-origin"
+  // for that host and React hydration silently dies (pages render their
+  // SSR shell but never attach handlers — buttons, forms and fetches are
+  // all dead). localhost is implicitly allowed.
+  ...(isExport ? {} : { allowedDevOrigins: ["127.0.0.1"] }),
   images: {
     unoptimized: true,
   },

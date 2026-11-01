@@ -8,7 +8,7 @@
 
 [![Live Application](https://img.shields.io/badge/Live_App-queueless--web.onrender.com-0070f3?style=for-the-badge&logo=render&logoColor=white)](https://queueless-web.onrender.com)
 [![API Docs](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-lvf5.onrender.com/docs)
-[![Tests](https://img.shields.io/badge/Tests-54_passing-3fb950?style=for-the-badge&logo=pytest&logoColor=white)](#3-testing--quality)
+[![Tests](https://img.shields.io/badge/Tests-56_passing-3fb950?style=for-the-badge&logo=pytest&logoColor=white)](#3-testing--quality)
 [![Python](https://img.shields.io/badge/FastAPI-Python_3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](#-tech-stack)
 [![Rust](https://img.shields.io/badge/Axum-Rust_1.80+-DEA584?style=for-the-badge&logo=rust&logoColor=white)](#-tech-stack)
 [![Next.js](https://img.shields.io/badge/Next.js_19-React-000000?style=for-the-badge&logo=next.js&logoColor=white)](#-tech-stack)
@@ -192,7 +192,7 @@ ephemeral per-process secret, so employees are signed out whenever the API resta
   - **Framework:** FastAPI (Python 3.10+ ASGI with Uvicorn)
   - **ORM / Database:** SQLAlchemy 2.0 with PostgreSQL (Production) / SQLite (Local Fallback)
   - **Validation:** Pydantic 2.0 models
-  - **Test Suite:** 53 passing automated pytest test cases
+  - **Test Suite:** 56 passing automated pytest test cases
 
 ---
 
@@ -214,7 +214,7 @@ Hospital-Management/
 │   ├── models/            # SQLAlchemy database models (queue + demo history)
 │   ├── schemas/           # Pydantic request/response schemas
 │   ├── demo_data/         # Checked-in historical hospital CSVs
-│   ├── tests/             # Pytest API and dataset suites (53 tests)
+│   ├── tests/             # Pytest API and dataset suites (56 tests)
 │   ├── database.py        # Database connection & session management
 │   ├── import_demo_data.py# Idempotent historical dataset importer
 │   ├── main.py            # FastAPI routes, endpoints & seeding

@@ -252,6 +252,10 @@ export default function AdminDashboardPage() {
       stop();
       document.removeEventListener("visibilitychange", onVisibilityChange);
       abortRef.current?.abort();
+      // The aborted request never settles; clear the guard so the StrictMode
+      // remount's fetch is not skipped and the dashboard data arrives on the
+      // first load instead of waiting for the next poll tick.
+      inFlight.current = false;
     };
   }, [fetchData, fetchDemoOverview, hydrated, session, router]);
 

@@ -344,8 +344,11 @@ export default function QueueClient() {
                     wait: String(queueStatus.estimated_wait_minutes ?? 0),
                     link: window.location.href,
                   });
+                  // wa.me's redirect re-encodes the query and corrupts 4-byte
+                  // UTF-8 (the 🏥 emoji became U+FFFD); api.whatsapp.com is
+                  // the redirect target anyway, so link it directly.
                   window.open(
-                    `https://wa.me/?text=${encodeURIComponent(message)}`,
+                    `https://api.whatsapp.com/send/?text=${encodeURIComponent(message)}`,
                     "_blank",
                     "noopener,noreferrer"
                   );
