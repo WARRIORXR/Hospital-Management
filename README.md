@@ -6,8 +6,8 @@
 
 *Zero blind waiting · Priority-aware triage · Bilingual (EN / हिन्दी)*
 
-[![Live Application](https://img.shields.io/badge/Live_App-queueless--web.onrender.com-0070f3?style=for-the-badge&logo=render&logoColor=white)](https://queueless-web.onrender.com)
-[![API Docs](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-lvf5.onrender.com/docs)
+[![Live Application](https://img.shields.io/badge/Live_App-queueless--web--4i0a.onrender.com-0070f3?style=for-the-badge&logo=render&logoColor=white)](https://queueless-web-4i0a.onrender.com)
+[![API Docs](https://img.shields.io/badge/Swagger-OpenAPI_Docs-85EA2D?style=for-the-badge&logo=swagger)](https://queueless-api-kbty.onrender.com/docs)
 [![Tests](https://img.shields.io/badge/Tests-56_passing-3fb950?style=for-the-badge&logo=pytest&logoColor=white)](#3-testing--quality)
 [![Python](https://img.shields.io/badge/FastAPI-Python_3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](#-tech-stack)
 [![Rust](https://img.shields.io/badge/Axum-Rust_1.80+-DEA584?style=for-the-badge&logo=rust&logoColor=white)](#-tech-stack)
@@ -18,9 +18,9 @@
 ---
 
 ### 🌐 Live Application
-👉 **[https://queueless-web.onrender.com](https://queueless-web.onrender.com)**
+👉 **[https://queueless-web-4i0a.onrender.com](https://queueless-web-4i0a.onrender.com)**
 
-> **Experience QueueLess Live:** The application is deployed and running live at **[https://queueless-web.onrender.com](https://queueless-web.onrender.com)**. Choose your section (Patient, Staff, Hospital, or Admin) to access real-time hospital queues, OPD wait-time estimation, and management consoles.
+> **Experience QueueLess Live:** The application is deployed and running live at **[https://queueless-web-4i0a.onrender.com](https://queueless-web-4i0a.onrender.com)**. Choose your section (Patient, Staff, Hospital, or Admin) to access real-time hospital queues, OPD wait-time estimation, and management consoles.
 
 ---
 
@@ -419,15 +419,15 @@ The Next.js frontend is deployed globally across Cloudflare's high-speed edge ne
   - **Root Directory:** `frontend`
   - **Build Command:** `npm run build` (automatically outputs static export to `out/` via `CF_PAGES=1`)
   - **Output Directory:** `out`
-  - **Environment Variables:** `NEXT_PUBLIC_API_URL=https://queueless-api-lvf5.onrender.com`
+  - **Environment Variables:** `NEXT_PUBLIC_API_URL=https://queueless-api-kbty.onrender.com`
 - **Deployment Guide:** See [DEPLOY_CLOUDFLARE.md](DEPLOY_CLOUDFLARE.md) for step-by-step dashboard connection and Wrangler CLI instructions.
 - **Cloudflare Developer Environment:** Equipped with official Cloudflare Agent Skills and remote Model Context Protocol (`https://mcp.cloudflare.com/mcp`) integration in `.vscode/mcp.json`.
 
 ### 2. Render Blueprint (Full-Stack Backend & PostgreSQL) 🚀
 QueueLess includes an infrastructure-as-code **Render Blueprint** (`render.yaml`) that provisions the FastAPI backend, Next.js frontend web service, and managed PostgreSQL instance:
-- **Backend API:** [https://queueless-api-lvf5.onrender.com](https://queueless-api-lvf5.onrender.com)
-- **Interactive OpenAPI / Swagger Docs:** [https://queueless-api-lvf5.onrender.com/docs](https://queueless-api-lvf5.onrender.com/docs)
-- **Render Web Frontend:** [https://queueless-web.onrender.com](https://queueless-web.onrender.com)
+- **Backend API:** [https://queueless-api-kbty.onrender.com](https://queueless-api-kbty.onrender.com)
+- **Interactive OpenAPI / Swagger Docs:** [https://queueless-api-kbty.onrender.com/docs](https://queueless-api-kbty.onrender.com/docs)
+- **Render Web Frontend:** [https://queueless-web-4i0a.onrender.com](https://queueless-web-4i0a.onrender.com)
 - **Deployment Guide:** See [DEPLOY_RENDER.md](DEPLOY_RENDER.md).
 
 > [!NOTE]

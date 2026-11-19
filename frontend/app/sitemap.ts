@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 // Required for `output: export` (Cloudflare Pages builds).
 export const dynamic = "force-static";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://queueless-web.onrender.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://queueless-web-4i0a.onrender.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

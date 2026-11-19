@@ -7,7 +7,7 @@ This guide explains how to deploy the **QueueLess Next.js frontend** on **Cloudf
 ## 🌐 Architecture Overview
 
 - **Frontend:** Hosted on Cloudflare Pages' global edge network (`https://queueless.pages.dev` or your custom domain).
-- **Backend API & Database:** Hosted on Render (`https://queueless-api-lvf5.onrender.com`) running FastAPI and PostgreSQL.
+- **Backend API & Database:** Hosted on Render (`https://queueless-api-kbty.onrender.com`) running FastAPI and PostgreSQL.
 - **Connection:** The frontend communicates with the backend via `NEXT_PUBLIC_API_URL`.
 
 ---
@@ -35,7 +35,7 @@ Connecting your GitHub repository to Cloudflare Pages enables automatic builds a
    - **Build output directory:** `out`
 5. **Set Environment Variables:**
    Under **Environment variables (advanced)**, add:
-   - `NEXT_PUBLIC_API_URL`: `https://queueless-api-lvf5.onrender.com` (or your Render API URL)
+   - `NEXT_PUBLIC_API_URL`: `https://queueless-api-kbty.onrender.com` (or your Render API URL)
    - `NODE_VERSION`: `20`
 6. **Deploy:**
    - Click **Save and Deploy**.
@@ -71,7 +71,7 @@ Ensure your backend accepts requests from your Cloudflare Pages domain:
 1. In `render.yaml` or Render Environment Settings for `queueless-api`:
 2. Add your Cloudflare domain to `FRONTEND_ORIGINS`:
    ```env
-   FRONTEND_ORIGINS=https://queueless.pages.dev,https://queueless-web.onrender.com
+   FRONTEND_ORIGINS=https://queueless.pages.dev,https://queueless-web-4i0a.onrender.com
    ```
 3. Redeploy the backend so cross-origin requests are permitted.
 

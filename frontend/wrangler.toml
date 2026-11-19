@@ -4,4 +4,4 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "out"
 
 [vars]
-NEXT_PUBLIC_API_URL = "https://queueless-api-lvf5.onrender.com"
+NEXT_PUBLIC_API_URL = "https://queueless-api-kbty.onrender.com"
